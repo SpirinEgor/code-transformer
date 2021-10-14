@@ -4,7 +4,7 @@ from typing import List, Union
 import torch
 from torch.nn import functional as F
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import IterableDataset, DataLoader
+from torch.utils.data import IterableDataset, DataLoader, Dataset
 
 from code_transformer.modeling.constants import PAD_TOKEN, EOS_TOKEN, MAX_NUM_TOKENS, UNKNOWN_TOKEN
 from code_transformer.modeling.data_utils import pad_mask
@@ -49,7 +49,7 @@ CTBaseBatch = namedtuple(
 )
 
 
-class CTBaseDataset(IterableDataset):
+class CTBaseDataset(Dataset):
     """
     Unites common functionalities used across different datasets such as applying the token mapping to the
     distance matrices and collating the matrices from multiple samples into one big tensor.
@@ -86,22 +86,38 @@ class CTBaseDataset(IterableDataset):
     def to_dataloader(self):
         return DataLoader(self, collate_fn=self.collate_fn)
 
-    def __next__(self):
-        sample = self._get_next_sample()
-        return self.transform_sample(sample)
+    def __len__(self):
+        return self.data_manager.approximate_total_samples()
 
-    def _get_next_sample(self):
-        sample = next(self.dataset)
-
+    def _validate_sample(self, sample: CTStage2Sample):
         if self.max_num_tokens is not None:
             if len(sample.tokens) > self.max_num_tokens:
                 print(f"Snippet has {len(sample.tokens)} tokens exceeding the limit of {self.max_num_tokens}")
                 del sample
-                return self._get_next_sample()
+                return None
 
         sorted_mappings = sorted(sample.token_mapping.items(), key=lambda x: x[0])
         sample.token_mapping = [m[1] for m in sorted_mappings]
 
+        return sample
+
+    def __getitem__(self, item):
+        sample = self.data_manager[item]
+        sample = self._validate_sample(sample)
+        if sample is None:
+            return None
+        return self.transform_sample(sample)
+
+    def __next__(self):
+        sample = self._get_next_sample()
+
+        return self.transform_sample(sample)
+
+    def _get_next_sample(self):
+        sample = next(self.dataset)
+        sample = self._validate_sample(sample)
+        if sample is None:
+            return self._get_next_sample()
         return sample
 
     def transform_sample(self, sample: Union[CTStage2Sample, CTStage2MultiLanguageSample]):

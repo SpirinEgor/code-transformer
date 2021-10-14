@@ -5,6 +5,7 @@ from math import floor, ceil
 from typing import List, Tuple
 
 import numpy as np
+from tqdm import tqdm
 
 from code_transformer.preprocessing.pipeline.stage2 import CTStage2MultiLanguageSample
 from code_transformer.preprocessing.datamanager.base import DataManager, BufferedDataManager
@@ -91,6 +92,17 @@ class CTPreprocessedDataManager(DataManager):
             majority_class_size = max(dataset_imbalance)
             self.dataset_imbalance_multipliers = [majority_class_size / lang_size for lang_size in dataset_imbalance]
 
+        self._files = glob.glob(f"{self.dataset_location}/dataset-*.p.gzip")
+        config = self.load_config()
+        if "dataset_slice_size" in config["execution"]:
+            # Stage 2 dataset
+            self._dataset_slice_size = config["execution"]["dataset_slice_size"]
+        elif "save_every" in config["execution"]:
+            # Stage 1 dataset
+            self._dataset_slice_size = config["execution"]["save_every"]
+        else:
+            self._dataset_slice_size = 5000
+
     def save(self, dataset_slice: List, dataset_slice_idx=None, **kwargs):
         """
         Zips the dataset slice and writes it to disk. This is a rather time consuming operation.
@@ -175,17 +187,9 @@ class CTPreprocessedDataManager(DataManager):
 
     def approximate_total_samples(self, dataset_slice_size=None):
         if dataset_slice_size is None:
-            config = self.load_config()
-            if "dataset_slice_size" in config["execution"]:
-                # Stage 2 dataset
-                dataset_slice_size = config["execution"]["dataset_slice_size"]
-            elif "save_every" in config["execution"]:
-                # Stage 1 dataset
-                dataset_slice_size = config["execution"]["save_every"]
-            else:
-                dataset_slice_size = 5000
-        files = glob.glob(f"{self.dataset_location}/dataset-*.p.gzip")
-        return (len(files) - 1) * dataset_slice_size + int(dataset_slice_size / 2)
+            dataset_slice_size = self._dataset_slice_size
+        return len(self._files) * dataset_slice_size
+        # return (len(self._files) - 1) * dataset_slice_size + int(dataset_slice_size / 2)
 
     def _lazy_load_files(self):
         """
@@ -263,6 +267,14 @@ class CTPreprocessedDataManager(DataManager):
 
         logger.info(f"Loaded {len(data)} samples")
         return data
+
+    def __getitem__(self, item: int):
+        file_num, file_pos = item // self._dataset_slice_size, item % self._dataset_slice_size
+        item_file_name = self._files[file_num]
+        data = load_zipped(item_file_name)
+        if len(data) <= file_pos:
+            return None
+        return data[file_pos]
 
     def __iter__(self):
         """
