@@ -6,7 +6,6 @@ import torch
 
 
 class TestBinning(unittest.TestCase):
-
     def test_with_unreachable(self):
         values = torch.arange(-5, 6)
         values = torch.cat([values, torch.tensor([1000])])
@@ -59,8 +58,9 @@ class TestBinning(unittest.TestCase):
         assert bins.to(torch.long).allclose(torch.cat([torch.tensor([UNREACHABLE], dtype=torch.long), values_orig]))
         # binned values should be:
         # [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, UNREACHABLE, UNREACHABLE]
-        assert bins[ixs].allclose(torch.cat([values_orig, torch.tensor([UNREACHABLE]),
-                                             torch.tensor([UNREACHABLE])]).to(torch.float32))
+        assert bins[ixs].allclose(
+            torch.cat([values_orig, torch.tensor([UNREACHABLE]), torch.tensor([UNREACHABLE])]).to(torch.float32)
+        )
 
     def test_all_fixed_with_unreachable_alternative(self):
         values_orig = torch.arange(-50, 51)
@@ -86,8 +86,11 @@ class TestBinning(unittest.TestCase):
         DB = DistanceBinning(n_bins, n_fixed=5)
         ixs, bins = DB(values.to(torch.long))
 
-        self.assertTrue(bins[ixs][0].allclose(
-            torch.tensor([-6, -6, -4.5, -4.5, -2, -1, 0, 1, 2, 4.5, 4.5, 6, 6], dtype=torch.float)))
+        self.assertTrue(
+            bins[ixs][0].allclose(
+                torch.tensor([-6, -6, -4.5, -4.5, -2, -1, 0, 1, 2, 4.5, 4.5, 6, 6], dtype=torch.float)
+            )
+        )
 
     def test_fewer_unique_values_than_bins(self):
         values = torch.arange(-10, 11, step=5).unsqueeze(0).repeat((3, 1))
@@ -95,8 +98,16 @@ class TestBinning(unittest.TestCase):
         DB = DistanceBinning(n_bins, n_fixed=5)
         ixs, bins = DB(values.to(torch.long))
 
-        self.assertTrue(bins.allclose(torch.cat([torch.tensor([UNREACHABLE, -10, -5, 0, 5, 10], dtype=torch.float),
-                                                 torch.tensor([BIN_PADDING], dtype=torch.float).expand(26)])))
+        self.assertTrue(
+            bins.allclose(
+                torch.cat(
+                    [
+                        torch.tensor([UNREACHABLE, -10, -5, 0, 5, 10], dtype=torch.float),
+                        torch.tensor([BIN_PADDING], dtype=torch.float).expand(26),
+                    ]
+                )
+            )
+        )
 
     def test_uneven_bins(self):
         values = torch.arange(-10, 11, step=1)

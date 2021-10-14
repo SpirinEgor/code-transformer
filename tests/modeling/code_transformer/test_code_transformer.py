@@ -16,11 +16,9 @@ from code_transformer.modeling.code_transformer.decoder import CodeTransformerDe
 from code_transformer.modeling.code_transformer.lm import TransformerLanguageModel, TransformerLMEncoder
 from code_transformer.modeling.constants import SOS_TOKEN, UNKNOWN_TOKEN, PAD_TOKEN
 from code_transformer.preprocessing.datamanager.base import CTBatch, batch_to_device, batch_filter_distances
-from code_transformer.preprocessing.datamanager.preprocessed import CTBufferedDataManager, \
-    CTPreprocessedDataManager
+from code_transformer.preprocessing.datamanager.preprocessed import CTBufferedDataManager, CTPreprocessedDataManager
 from code_transformer.preprocessing.dataset.code_summarization import CTCodeSummarizationDatasetNoPunctuation
-from code_transformer.preprocessing.dataset.lm import CTLanguageModelingDataset, \
-    CTLanguageModelingDatasetNoPunctuation
+from code_transformer.preprocessing.dataset.lm import CTLanguageModelingDataset, CTLanguageModelingDatasetNoPunctuation
 from code_transformer.preprocessing.nlp.vocab import batch_decode
 from code_transformer.utils.io import load_zipped
 from code_transformer.utils.metrics import topk_accuracy
@@ -30,7 +28,6 @@ RUN_TESTS_ON_GPU = False
 
 
 class TestCodeTransformer(unittest.TestCase):
-
     @staticmethod
     def generate_transformer_default_config(**kwargs) -> CodeTransformerCoreConfig:
         layer_conf = CodeTransformerLayerConfig(
@@ -47,16 +44,13 @@ class TestCodeTransformer(unittest.TestCase):
             use_pos_pos=True,
         )
         layer_conf.update(**kwargs)
-        conf = CodeTransformerCoreConfig(
-            encoder_layer=layer_conf,
-            num_layers=7
-        )
+        conf = CodeTransformerCoreConfig(encoder_layer=layer_conf, num_layers=7)
 
         return conf
 
-    def generate_language_model_default_config(self,
-                                               transformer_config: CodeTransformerCoreConfig = None) \
-            -> TransformerLMDecoderConfig:
+    def generate_language_model_default_config(
+        self, transformer_config: CodeTransformerCoreConfig = None
+    ) -> TransformerLMDecoderConfig:
         if transformer_config is None:
             transformer_config = TestCodeTransformer.generate_transformer_default_config()
         encoder_conf = TransformerLMEncoderConfig(
@@ -65,13 +59,10 @@ class TestCodeTransformer(unittest.TestCase):
             num_node_types=5,
             num_token_types=13,
             subtokens_per_token=5,
-            input_nonlinearity="tanh")
-
-        return TransformerLMDecoderConfig(
-            encoder_conf,
-            sos_id=-1,
-            output_nonlinearity=None
+            input_nonlinearity="tanh",
         )
+
+        return TransformerLMDecoderConfig(encoder_conf, sos_id=-1, output_nonlinearity=None)
 
     def attention_sanity_check(self, attentions, lengths, target_mapping_per_token):
         for att_content, att_query in attentions:
@@ -84,10 +75,12 @@ class TestCodeTransformer(unittest.TestCase):
                 print(att_query.max())
             assert att_query.max() <= 1, att_query.max()
             assert att_query.min() >= 0
-            assert ((att_query > 0).long().sum(-1).max((-1))[0].max(-1)[
-                        0] <= lengths).all(), "Tokens attended padded tokens"
-            assert ((att_content > 0).long().sum(-1).max((-1))[0].max(-1)[
-                        0] <= lengths).all(), "Tokens attended padded tokens"
+            assert (
+                (att_query > 0).long().sum(-1).max((-1))[0].max(-1)[0] <= lengths
+            ).all(), "Tokens attended padded tokens"
+            assert (
+                (att_content > 0).long().sum(-1).max((-1))[0].max(-1)[0] <= lengths
+            ).all(), "Tokens attended padded tokens"
 
             att_query_agg = att_query.mean(1)
             tgt_nnz = target_mapping_per_token.nonzero()
@@ -95,8 +88,9 @@ class TestCodeTransformer(unittest.TestCase):
 
             if not (att_query_agg[tuple(tgt_nnz.t())] == 0).all():
                 print(att_query_agg[tuple(tgt_nnz.t())].max())
-            assert (att_query_agg[tuple(
-                tgt_nnz.t())] == 0).all(), "Query stream targets can attend themselves, leading to data leakage!"
+            assert (
+                att_query_agg[tuple(tgt_nnz.t())] == 0
+            ).all(), "Query stream targets can attend themselves, leading to data leakage!"
 
     def setup_mini_dataset(self):
         BATCH_SIZE = 13
@@ -124,23 +118,24 @@ class TestCodeTransformer(unittest.TestCase):
                 use_content_content=True,
                 use_content_pos=True,
                 use_pos_content=True,
-                use_pos_pos=True
+                use_pos_pos=True,
             ),
-            num_layers=4
+            num_layers=4,
         )
         language_model_config = TransformerLMDecoderConfig(
             lm_encoder=TransformerLMEncoderConfig(
                 transformer=config,
                 vocab_size=len(self.word_vocab.vocabulary),
                 num_node_types=len(self.node_type_vocab.vocabulary),
-                num_token_types=len(self.token_type_vocab.vocabulary)
+                num_token_types=len(self.token_type_vocab.vocabulary),
             ),
-            sos_id=-1
+            sos_id=-1,
         )
         transformer_lm = TransformerLanguageModel(
-            transformer_lm_encoder=language_model_config['lm_encoder'],
-            output_nonlinearity=language_model_config['output_nonlinearity'],
-            loss_fct=language_model_config['loss_fct'])
+            transformer_lm_encoder=language_model_config["lm_encoder"],
+            output_nonlinearity=language_model_config["output_nonlinearity"],
+            loss_fct=language_model_config["loss_fct"],
+        )
         batch: CTBatch = next(iter(dataloader))
 
         with self.assertRaises(AssertionError):
@@ -162,24 +157,25 @@ class TestCodeTransformer(unittest.TestCase):
                 use_content_content=True,
                 use_content_pos=True,
                 use_pos_content=True,
-                use_pos_pos=True
+                use_pos_pos=True,
             ),
-            num_layers=4
+            num_layers=4,
         )
         language_model_config = TransformerLMDecoderConfig(
             lm_encoder=TransformerLMEncoderConfig(
                 transformer=config,
                 vocab_size=len(self.word_vocab.vocabulary),
                 num_node_types=len(self.node_type_vocab.vocabulary),
-                num_token_types=len(self.token_type_vocab.vocabulary)
+                num_token_types=len(self.token_type_vocab.vocabulary),
             ),
-            sos_id=-1
+            sos_id=-1,
         )
 
         transformer_lm = TransformerLanguageModel(
-            transformer_lm_encoder=language_model_config['lm_encoder'],
-            output_nonlinearity=language_model_config['output_nonlinearity'],
-            loss_fct=language_model_config['loss_fct'])
+            transformer_lm_encoder=language_model_config["lm_encoder"],
+            output_nonlinearity=language_model_config["output_nonlinearity"],
+            loss_fct=language_model_config["loss_fct"],
+        )
         batch: CTBatch = next(iter(dataloader))
         transformer_lm.forward_batch(batch)
 
@@ -196,7 +192,8 @@ class TestCodeTransformer(unittest.TestCase):
                 use_content_content=True,
                 use_content_pos=True,
                 use_pos_content=True,
-                use_pos_pos=True),
+                use_pos_pos=True,
+            ),
             num_layers=4,
         )
         language_model_config = TransformerLMDecoderConfig(
@@ -204,26 +201,27 @@ class TestCodeTransformer(unittest.TestCase):
                 config,
                 vocab_size=len(self.word_vocab.vocabulary),
                 num_node_types=len(self.node_type_vocab.vocabulary),
-                num_token_types=len(self.token_type_vocab.vocabulary)),
+                num_token_types=len(self.token_type_vocab.vocabulary),
+            ),
             sos_id=-1,
         )
         with self.assertRaises(Exception):
             transformer_lm = TransformerLanguageModel(
-                transformer_lm_encoder=language_model_config['lm_encoder'],
-                output_nonlinearity=language_model_config['output_nonlinearity'],
-                loss_fct=language_model_config['loss_fct'])
+                transformer_lm_encoder=language_model_config["lm_encoder"],
+                output_nonlinearity=language_model_config["output_nonlinearity"],
+                loss_fct=language_model_config["loss_fct"],
+            )
             batch: CTBatch = next(iter(dataloader))
             transformer_lm.forward_batch(batch)
 
     def test_mini_dataset(self):
-
         def evaluate_predictions(logits, labels, loss=None):
             correct = logits.argmax(-1) == labels
             all_correct = correct.prod(-1)
             correct_tokens = all_correct.float().mean().cpu().item()
             ret = dict(correct_tokens=correct_tokens)
             if loss is not None:
-                ret['loss'] = loss.detach().cpu().item()
+                ret["loss"] = loss.detach().cpu().item()
             return ret
 
         BATCH_SIZE = 13
@@ -242,7 +240,8 @@ class TestCodeTransformer(unittest.TestCase):
                 use_content_content=True,
                 use_content_pos=True,
                 use_pos_content=True,
-                use_pos_pos=True),
+                use_pos_pos=True,
+            ),
             num_layers=4,
         )
 
@@ -251,13 +250,15 @@ class TestCodeTransformer(unittest.TestCase):
                 config,
                 vocab_size=len(self.word_vocab.vocabulary),
                 num_node_types=len(self.node_type_vocab.vocabulary),
-                num_token_types=len(self.token_type_vocab.vocabulary)),
-            sos_id=-1
+                num_token_types=len(self.token_type_vocab.vocabulary),
+            ),
+            sos_id=-1,
         )
         transformer_lm = TransformerLanguageModel(
-            transformer_lm_encoder=language_model_config['lm_encoder'],
-            output_nonlinearity=language_model_config['output_nonlinearity'],
-            loss_fct=language_model_config['loss_fct'])
+            transformer_lm_encoder=language_model_config["lm_encoder"],
+            output_nonlinearity=language_model_config["output_nonlinearity"],
+            loss_fct=language_model_config["loss_fct"],
+        )
         batch: CTBatch = next(iter(dataloader))
 
         cuda = torch.cuda.is_available() and RUN_TESTS_ON_GPU
@@ -273,23 +274,25 @@ class TestCodeTransformer(unittest.TestCase):
                 output = transformer_lm.forward_batch(batch)
             batch = batch_to_device(batch, "cuda")
 
-        assert not (batch.labels == self.word_vocab['</s>']).any().item()
+        assert not (batch.labels == self.word_vocab["</s>"]).any().item()
         for _ in tq:
             output = transformer_lm.forward_batch(batch)
             output.loss.backward()
             opt.step()
             opt.zero_grad()
             evaluation = evaluate_predictions(output.logits, batch.labels)
-            acc = evaluation['correct_tokens']
+            acc = evaluation["correct_tokens"]
             tq.set_postfix(loss=output.loss.cpu().item(), acc=acc)
 
             predicted_tokens = output.logits.argmax(-1)
             generated_text = batch_decode(self.word_vocab, predicted_tokens)
             generated_text2 = [
-                " ".join([
-                    "_".join([self.word_vocab.reverse_lookup(subtoken.item()) for subtoken in token])
-                    for token in sample
-                ])
+                " ".join(
+                    [
+                        "_".join([self.word_vocab.reverse_lookup(subtoken.item()) for subtoken in token])
+                        for token in sample
+                    ]
+                )
                 for sample in predicted_tokens
             ]
             assert list(generated_text) == generated_text2
@@ -297,15 +300,14 @@ class TestCodeTransformer(unittest.TestCase):
 
     def create_test_input(self, model):
         class DistanceBinning(object):
-
             def __init__(self, n_bins):
                 self.n_bins = n_bins
 
             def __call__(self, sample):
                 return_dict = sample
                 distances_list = []
-                for dist_name in sample['distances'].keys():
-                    dist: torch.Tensor = sample['distances'][dist_name]
+                for dist_name in sample["distances"].keys():
+                    dist: torch.Tensor = sample["distances"][dist_name]
                     if dist.dtype in [torch.float32, torch.float16, torch.float64]:
                         resh = dist.reshape(-1).cpu().numpy()
                         possible_distances = torch.tensor(histedges_equalA(resh, self.n_bins - 1), dtype=torch.float32)
@@ -323,14 +325,15 @@ class TestCodeTransformer(unittest.TestCase):
                             raise ValueError("number of possible distances larger than number of bins!")
                         n_pad = self.n_bins - len(possible_distances)
                         if n_pad > 0:
-                            possible_distances = torch.cat([possible_distances, max_dist * torch.ones(n_pad,
-                                                                                                      dtype=torch.long)])
+                            possible_distances = torch.cat(
+                                [possible_distances, max_dist * torch.ones(n_pad, dtype=torch.long)]
+                            )
                         indices = dist.clone().to(torch.long)
                         nnz = ((indices.unsqueeze(-1) == possible_distances[None, None, :].long())).nonzero()
                         indices[(nnz[:, 0], nnz[:, 1])] = nnz[:, 2].long()
                         indices[indices >= 1000] = max_dist + 1
                         distances_list.append((indices, possible_distances, dist_name))
-                return_dict['distances'] = distances_list
+                return_dict["distances"] = distances_list
                 return return_dict
 
         def histedges_equalA(x, nbin):
@@ -340,10 +343,8 @@ class TestCodeTransformer(unittest.TestCase):
             pow = 0.5
             dx = np.diff(np.sort(x))
             tmp = np.cumsum(dx ** pow)
-            tmp = np.pad(tmp, (1, 0), 'constant')
-            return np.interp(np.linspace(0, tmp.max(), nbin + 1),
-                             tmp,
-                             np.sort(x))
+            tmp = np.pad(tmp, (1, 0), "constant")
+            return np.interp(np.linspace(0, tmp.max(), nbin + 1), tmp, np.sort(x))
 
         output_subtokens_per_token = model.output_subtokens_per_token
         batch_size = 7
@@ -360,33 +361,36 @@ class TestCodeTransformer(unittest.TestCase):
         lengths = torch.linspace(9, 27, steps=batch_size).to(torch.long)
         pad_mask = data_utils.pad_mask(lengths, max_len=sequence_length)
 
-        test_token_sequence = torch.randint(low=5, high=vocab_size,
-                                            size=[batch_size, sequence_length, subtokens_per_token])
+        test_token_sequence = torch.randint(
+            low=5, high=vocab_size, size=[batch_size, sequence_length, subtokens_per_token]
+        )
         test_token_sequence[:, 0] = CLS_ID
-        test_node_type_sequence = torch.randint(low=0, high=num_node_types,
-                                                size=[batch_size, sequence_length])
+        test_node_type_sequence = torch.randint(low=0, high=num_node_types, size=[batch_size, sequence_length])
 
-        test_token_type_sequence = torch.randint(low=0, high=num_token_types,
-                                                 size=[batch_size, sequence_length])
+        test_token_type_sequence = torch.randint(low=0, high=num_token_types, size=[batch_size, sequence_length])
 
         target_mapping = torch.zeros((batch_size, 1, sequence_length))
         target_mapping[:, :, 0] = 1
 
         labels = test_token_sequence[:, FUNC_NAME_IDX, :].unsqueeze(1)
-        fill_labels = torch.randint(low=5, high=vocab_size,
-                                    size=[batch_size, 1,
-                                          output_subtokens_per_token - subtokens_per_token])
+        fill_labels = torch.randint(
+            low=5, high=vocab_size, size=[batch_size, 1, output_subtokens_per_token - subtokens_per_token]
+        )
         labels = torch.cat([labels, fill_labels], -1)
 
         sequence_dists = torch.arange(sequence_length)[:, None] - torch.arange(sequence_length)[None, :]
-        batch = [dict(
-            distances=dict(seq=sequence_dists, )
-        )
-            for _ in range(batch_size)]
+        batch = [
+            dict(
+                distances=dict(
+                    seq=sequence_dists,
+                )
+            )
+            for _ in range(batch_size)
+        ]
         db = DistanceBinning(n_bins=64)
         ret = [db(b) for b in batch]
-        distances = torch.stack([x['distances'][0][0] for x in ret])
-        bins = torch.stack([x['distances'][0][1].t() for x in ret]).t()
+        distances = torch.stack([x["distances"][0][0] for x in ret])
+        bins = torch.stack([x["distances"][0][1].t() for x in ret]).t()
 
         perm_mask = torch.zeros((batch_size, sequence_length, sequence_length))
         perm_mask[:, :, 0] = 1
@@ -394,7 +398,9 @@ class TestCodeTransformer(unittest.TestCase):
         perm_mask[:, 0, 0] = 0
         perm_mask[:, FUNC_NAME_IDX, 0] = 0
 
-        rel_distances = [(distances, bins), ]
+        rel_distances = [
+            (distances, bins),
+        ]
 
         cuda = torch.cuda.is_available()
         if cuda:
@@ -407,8 +413,16 @@ class TestCodeTransformer(unittest.TestCase):
             rel_distances = [(x[0].cuda(), x[1].cuda()) for x in rel_distances]
             labels = labels.cuda()
 
-        return test_token_sequence, test_node_type_sequence, test_token_type_sequence, target_mapping, perm_mask, \
-               pad_mask, rel_distances, labels
+        return (
+            test_token_sequence,
+            test_node_type_sequence,
+            test_token_type_sequence,
+            target_mapping,
+            perm_mask,
+            pad_mask,
+            rel_distances,
+            labels,
+        )
 
     # =========================================================================
     # Decoder tests
@@ -418,11 +432,27 @@ class TestCodeTransformer(unittest.TestCase):
         self.model = model
 
         if test_input is None:
-            test_token_sequence, test_node_type_sequence, test_token_type_sequence, target_mapping, perm_mask, \
-            pad_mask, rel_distances, labels = self.create_test_input(model)
+            (
+                test_token_sequence,
+                test_node_type_sequence,
+                test_token_type_sequence,
+                target_mapping,
+                perm_mask,
+                pad_mask,
+                rel_distances,
+                labels,
+            ) = self.create_test_input(model)
         else:
-            test_token_sequence, test_node_type_sequence, test_token_type_sequence, target_mapping, perm_mask, \
-            pad_mask, rel_distances, labels = test_input
+            (
+                test_token_sequence,
+                test_node_type_sequence,
+                test_token_type_sequence,
+                target_mapping,
+                perm_mask,
+                pad_mask,
+                rel_distances,
+                labels,
+            ) = test_input
 
         if torch.cuda.is_available():
             self.model = self.model.cuda()
@@ -432,15 +462,17 @@ class TestCodeTransformer(unittest.TestCase):
         tq = tqdm(range(n_steps))
         accuracy = 0
         for it in tq:
-            output = self.model.forward(input_tokens=test_token_sequence,
-                                        input_node_types=test_node_type_sequence,
-                                        relative_distances=rel_distances,
-                                        input_token_types=test_token_type_sequence,
-                                        attention_mask=perm_mask,
-                                        pad_mask=1 - pad_mask,
-                                        target_mapping=target_mapping,
-                                        labels=labels,
-                                        need_weights=True)
+            output = self.model.forward(
+                input_tokens=test_token_sequence,
+                input_node_types=test_node_type_sequence,
+                relative_distances=rel_distances,
+                input_token_types=test_token_type_sequence,
+                attention_mask=perm_mask,
+                pad_mask=1 - pad_mask,
+                target_mapping=target_mapping,
+                labels=labels,
+                need_weights=True,
+            )
             loss = output[0]
             loss.backward()
             opt.step()
@@ -465,8 +497,10 @@ class TestCodeTransformer(unittest.TestCase):
                 use_content_content=True,
                 use_content_pos=True,
                 use_pos_content=True,
-                use_pos_pos=True),
-            num_layers=7)
+                use_pos_pos=True,
+            ),
+            num_layers=7,
+        )
         return conf
 
     def generate_lm_encoder_config(self):
@@ -476,7 +510,8 @@ class TestCodeTransformer(unittest.TestCase):
             num_node_types=5,
             num_token_types=13,
             subtokens_per_token=5,
-            input_nonlinearity="tanh")
+            input_nonlinearity="tanh",
+        )
 
     def test_sample_targets(self):
         num_predict = 2
@@ -486,17 +521,17 @@ class TestCodeTransformer(unittest.TestCase):
         lengths = torch.linspace(num_predict, max_seq_len - 1, steps=batch_size).to(torch.long)
         pad_mask = data_utils.pad_mask(lengths, max_len=max_seq_len)
 
-        targets = data_utils.sample_targets(num_predict=num_predict,
-                                            seq_len=max_seq_len,
-                                            batch_size=batch_size, pad_mask=pad_mask)
-
+        targets = data_utils.sample_targets(
+            num_predict=num_predict, seq_len=max_seq_len, batch_size=batch_size, pad_mask=pad_mask
+        )
 
     # =========================================================================
     # Pointer Network Tests
     # =========================================================================
 
-    def _create_pointer_network_model(self, data_manager, use_pointer_network=True,
-                                      attention_type=AttentionType.MULTIHEAD):
+    def _create_pointer_network_model(
+        self, data_manager, use_pointer_network=True, attention_type=AttentionType.MULTIHEAD
+    ):
         word_vocab, token_type_vocab, node_type_vocab = data_manager.load_vocabularies()
         config = data_manager.load_config()
 
@@ -511,31 +546,28 @@ class TestCodeTransformer(unittest.TestCase):
             use_pos_content=True,
             use_pos_pos=True,
             use_token_distances=True,
-            dropout=0.2
+            dropout=0.2,
         )
-        transformer_config = dict(
-            num_layers=1
-        )
+        transformer_config = dict(num_layers=1)
         encoder_config = dict(
             vocab_size=len(word_vocab),
             num_token_types=len(token_type_vocab),
             num_node_types=len(node_type_vocab),
-            input_nonlinearity='tanh'
+            input_nonlinearity="tanh",
         )
         decoder_config = dict(
-            sos_id=config['preprocessing']['special_symbols'][SOS_TOKEN],
+            sos_id=config["preprocessing"]["special_symbols"][SOS_TOKEN],
             n_layers=1,
             use_teacher_forcing=True,
             output_subtokens_per_token=6,
             use_pointer_network=use_pointer_network,
-            pointer_attention_type=attention_type
+            pointer_attention_type=attention_type,
         )
 
         def init_model():
-            transformer_config['encoder_layer'] = CodeTransformerLayer(**layer_config)
-            encoder_config['transformer'] = CodeTransformer(CodeTransformerCoreConfig(**transformer_config))
-            decoder_config['lm_encoder'] = TransformerLMEncoder(
-                TransformerLMEncoderConfig(**encoder_config))
+            transformer_config["encoder_layer"] = CodeTransformerLayer(**layer_config)
+            encoder_config["transformer"] = CodeTransformer(CodeTransformerCoreConfig(**transformer_config))
+            decoder_config["lm_encoder"] = TransformerLMEncoder(TransformerLMEncoderConfig(**encoder_config))
             model = CodeTransformerDecoder(TransformerLMDecoderConfig(**decoder_config))
 
             num_params = sum([len(params.view(-1)) for params in model.parameters()])
@@ -547,11 +579,12 @@ class TestCodeTransformer(unittest.TestCase):
         return model
 
     def test_pointer_network(self):
-        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2, language='java-small', partition='valid')
+        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2, language="java-small", partition="valid")
         word_vocab, token_type_vocab, node_type_vocab = data_manager.load_vocabularies()
 
-        dataset = CTCodeSummarizationDatasetNoPunctuation(data_manager, num_sub_tokens_output=6,
-                                                          use_pointer_network=True)
+        dataset = CTCodeSummarizationDatasetNoPunctuation(
+            data_manager, num_sub_tokens_output=6, use_pointer_network=True
+        )
         dataloader = DataLoader(dataset, batch_size=1, collate_fn=dataset.collate_fn)
 
         iterator = iter(dataloader)
@@ -649,8 +682,14 @@ class TestCodeTransformer(unittest.TestCase):
     # Transformer Decoder Tests
     # =========================================================================
 
-    def _create_transformer_decoder_model(self, data_manager, use_pointer_network=True, use_query_self_attention=False,
-                                          output_subtokens_per_token=6, num_languages=None):
+    def _create_transformer_decoder_model(
+        self,
+        data_manager,
+        use_pointer_network=True,
+        use_query_self_attention=False,
+        output_subtokens_per_token=6,
+        num_languages=None,
+    ):
         word_vocab, token_type_vocab, node_type_vocab = data_manager.load_vocabularies()
         config = data_manager.load_config()
 
@@ -665,20 +704,18 @@ class TestCodeTransformer(unittest.TestCase):
             use_pos_content=True,
             use_pos_pos=True,
             use_token_distances=True,
-            dropout=0.2
+            dropout=0.2,
         )
-        transformer_config = dict(
-            num_layers=1
-        )
+        transformer_config = dict(num_layers=1)
         encoder_config = dict(
             vocab_size=len(word_vocab),
             num_token_types=len(token_type_vocab),
             num_node_types=len(node_type_vocab),
-            input_nonlinearity='tanh',
-            num_languages=num_languages
+            input_nonlinearity="tanh",
+            num_languages=num_languages,
         )
         decoder_config = dict(
-            sos_id=config['preprocessing']['special_symbols'][SOS_TOKEN],
+            sos_id=config["preprocessing"]["special_symbols"][SOS_TOKEN],
             n_layers=2,
             use_teacher_forcing=True,
             output_subtokens_per_token=output_subtokens_per_token,
@@ -686,14 +723,13 @@ class TestCodeTransformer(unittest.TestCase):
             decoder_dim_feedforward=32,
             use_pointer_network=use_pointer_network,
             use_pointer_query_self_attention=use_query_self_attention,
-            pointer_attention_type=AttentionType.MULTIHEAD
+            pointer_attention_type=AttentionType.MULTIHEAD,
         )
 
         def init_model():
-            transformer_config['encoder_layer'] = CodeTransformerLayer(**layer_config)
-            encoder_config['transformer'] = CodeTransformer(CodeTransformerCoreConfig(**transformer_config))
-            decoder_config['lm_encoder'] = TransformerLMEncoder(
-                TransformerLMEncoderConfig(**encoder_config))
+            transformer_config["encoder_layer"] = CodeTransformerLayer(**layer_config)
+            encoder_config["transformer"] = CodeTransformer(CodeTransformerCoreConfig(**transformer_config))
+            decoder_config["lm_encoder"] = TransformerLMEncoder(TransformerLMEncoderConfig(**encoder_config))
             model = CodeTransformerDecoder(TransformerLMDecoderConfig(**decoder_config))
 
             num_params = sum([len(params.view(-1)) for params in model.parameters()])
@@ -705,11 +741,12 @@ class TestCodeTransformer(unittest.TestCase):
         return model
 
     def test_transformer_decoder(self):
-        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2, language='java-small', partition='valid')
+        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2, language="java-small", partition="valid")
         word_vocab, _, _ = data_manager.load_vocabularies()
 
-        dataset = CTCodeSummarizationDatasetNoPunctuation(data_manager, num_sub_tokens_output=6,
-                                                          use_pointer_network=True)
+        dataset = CTCodeSummarizationDatasetNoPunctuation(
+            data_manager, num_sub_tokens_output=6, use_pointer_network=True
+        )
         dataloader = DataLoader(dataset, batch_size=1, collate_fn=dataset.collate_fn)
 
         iterator = iter(dataloader)
@@ -828,9 +865,10 @@ class TestCodeTransformer(unittest.TestCase):
 
     def test_transformer_decoder_language_modeling(self):
         n_predict = 2
-        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2, language='java-small', partition='valid')
-        dataset = CTLanguageModelingDatasetNoPunctuation(data_manager, use_pointer_network=True,
-                                                         num_labels_per_sample=n_predict)
+        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2, language="java-small", partition="valid")
+        dataset = CTLanguageModelingDatasetNoPunctuation(
+            data_manager, use_pointer_network=True, num_labels_per_sample=n_predict
+        )
         dataloader = DataLoader(dataset, collate_fn=dataset.collate_fn, batch_size=2)
         word_vocab, _, _ = data_manager.load_vocabularies()
 
@@ -873,12 +911,13 @@ class TestCodeTransformer(unittest.TestCase):
         self.assertGreater(output.loss.item(), 0.5)
 
     def test_transformer_decoder_multilanguage(self):
-        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2,
-                                                 language='python,javascript,go,ruby', partition='train',
-                                                 infinite_loading=True)
+        data_manager = CTPreprocessedDataManager(
+            DATA_PATH_STAGE_2, language="python,javascript,go,ruby", partition="train", infinite_loading=True
+        )
 
-        dataset = CTCodeSummarizationDatasetNoPunctuation(data_manager, num_sub_tokens_output=6,
-                                                          use_pointer_network=True)
+        dataset = CTCodeSummarizationDatasetNoPunctuation(
+            data_manager, num_sub_tokens_output=6, use_pointer_network=True
+        )
         dataloader = DataLoader(dataset, batch_size=3, collate_fn=dataset.collate_fn)
 
         iterator = iter(dataloader)

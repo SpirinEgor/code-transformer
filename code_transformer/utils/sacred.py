@@ -39,15 +39,18 @@ def _convert_values(val):
 
 
 def read_config(config_path):
-    with open(config_path, 'r') as conf:
+    with open(config_path, "r") as conf:
         config_dict = _convert_values(yaml.load(conf, Loader=yaml.FullLoader))
 
     return config_dict
 
 
 def parse_command(config):
-    config_strings = [f'{key}="{val}"' if type(val) != str else f'{key}="\'{val}\'"' for key, val in config.items() if
-                      not key == 'experiment_setup']
-    exe = config['experiment_setup']['executable']
+    config_strings = [
+        f'{key}="{val}"' if type(val) != str else f"{key}=\"'{val}'\""
+        for key, val in config.items()
+        if not key == "experiment_setup"
+    ]
+    exe = config["experiment_setup"]["executable"]
     cmd = f"PYTHONPATH=$(pwd) python {exe} with {' '.join(config_strings)}"
     return exe, cmd

@@ -10,7 +10,7 @@ import subprocess
 
 from code_transformer.utils.sacred import read_config, parse_command
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file")
     args = parser.parse_args()

@@ -12,12 +12,14 @@ from torch import nn
 class GreatEncoderTransformerAdapter(GreatEncoder):
     def forward(self, **model_input):
         output = super(GreatEncoderTransformerAdapter, self).forward(**model_input)
-        return TransformerOutput(output[:, 0, :].unsqueeze(1), None,
-                                 [(output.transpose(0, 1), torch.zeros((1, output.shape[0], output.shape[2]), device=output.device))])
+        return TransformerOutput(
+            output[:, 0, :].unsqueeze(1),
+            None,
+            [(output.transpose(0, 1), torch.zeros((1, output.shape[0], output.shape[2]), device=output.device))],
+        )
 
 
 class GreatTransformerDecoder(TransformerLMDecoder):
-
     def __init__(self, config: TransformerLMDecoderConfig):
         if not isinstance(config.lm_encoder, nn.Module):
             config.transformer_lm_encoder = GreatEncoder(GreatEncoderConfig(**config.lm_encoder))
@@ -27,11 +29,13 @@ class GreatTransformerDecoder(TransformerLMDecoder):
         super(GreatTransformerDecoder, self).__init__(config)
 
     def forward_batch(self, batch: GreatBatch):
-        return self.forward(input_tokens=batch.tokens,
-                            edge_ixs=batch.edge_ixs,
-                            attention_mask=batch.attention_mask,
-                            pad_mask=1 - batch.pad_mask,
-                            labels=batch.labels,
-                            pointer_pad_mask=batch.pointer_pad_mask,
-                            extended_vocabulary_ids=batch.extended_vocabulary_ids,
-                            languages=batch.languages)
+        return self.forward(
+            input_tokens=batch.tokens,
+            edge_ixs=batch.edge_ixs,
+            attention_mask=batch.attention_mask,
+            pad_mask=1 - batch.pad_mask,
+            labels=batch.labels,
+            pointer_pad_mask=batch.pointer_pad_mask,
+            extended_vocabulary_ids=batch.extended_vocabulary_ids,
+            languages=batch.languages,
+        )

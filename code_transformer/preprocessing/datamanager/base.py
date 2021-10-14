@@ -17,7 +17,6 @@ logger = get_logger(__name__)
 
 
 class RawDataLoader(ABC):
-
     @abstractmethod
     def read(self, batch_size=1, shuffle=False):
         pass
@@ -28,7 +27,6 @@ class RawDataLoader(ABC):
 
 
 class DataManager(ABC):
-
     @staticmethod
     def to_batches(generator, batch_size, lazy=False):
         """
@@ -91,7 +89,9 @@ class BufferedDataManager(DataManager):
     To ensure that the python process can end after using a BufferedDataManager, one should call the .shutdown() method
     """
 
-    QUEUE_END_MSG = 'DONE'  # A special message that is used for internal queues to signalize that the producer thread is done
+    QUEUE_END_MSG = (
+        "DONE"  # A special message that is used for internal queues to signalize that the producer thread is done
+    )
 
     def __init__(self, data_manager: DataManager, size_load_buffer=5000, size_save_buffer=1):
         """
@@ -223,23 +223,23 @@ class BufferedDataManager(DataManager):
 
 
 class CombinedDataManager(DataManager):
-
     def __init__(self, data_managers, identifiers=None):
         self.data_managers = data_managers
         self.identifiers = identifiers
         if identifiers is not None:
             assert len(data_managers) == len(
-                identifiers), "Need to have the same amount of identifiers as data managers"
+                identifiers
+            ), "Need to have the same amount of identifiers as data managers"
 
     def save(self, data, **kwargs):
-        raise Exception('CombinedDataManager cannot save')
+        raise Exception("CombinedDataManager cannot save")
 
     def __iter__(self):
-        return CombinedDataManager.Iterator([iter(data_manager) for data_manager in self.data_managers],
-                                            self.identifiers)
+        return CombinedDataManager.Iterator(
+            [iter(data_manager) for data_manager in self.data_managers], self.identifiers
+        )
 
     class Iterator:
-
         def __init__(self, iterators, identifiers):
             self.iterators = iterators
             self.identifiers = identifiers
@@ -262,7 +262,6 @@ class CombinedDataManager(DataManager):
 
 
 class DataLoaderWrapper(DataManager):
-
     def __init__(self, dataloader):
         self.dataloader = dataloader
 
@@ -273,11 +272,26 @@ class DataLoaderWrapper(DataManager):
         pass
 
 
-CTBatch = collections.namedtuple("CTBatch", ['tokens', 'token_types', 'node_types', 'relative_distances',
-                                                         'distance_names', 'sequence_lengths', 'pad_mask', 'labels',
-                                                         'perm_mask', 'target_mapping', 'target_mapping_per_token',
-                                                         'extended_vocabulary',
-                                                         'extended_vocabulary_ids', 'pointer_pad_mask', 'languages'])
+CTBatch = collections.namedtuple(
+    "CTBatch",
+    [
+        "tokens",
+        "token_types",
+        "node_types",
+        "relative_distances",
+        "distance_names",
+        "sequence_lengths",
+        "pad_mask",
+        "labels",
+        "perm_mask",
+        "target_mapping",
+        "target_mapping_per_token",
+        "extended_vocabulary",
+        "extended_vocabulary_ids",
+        "pointer_pad_mask",
+        "languages",
+    ],
+)
 
 
 def batch_to_device(batch: CTBatch, device="cuda"):

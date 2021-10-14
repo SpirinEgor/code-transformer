@@ -19,8 +19,9 @@ def preprocess_adj(adj, asserts=True):
         adj_norm = adj_tilde.multiply(degs_inv).multiply(degs_inv.T)
     elif isinstance(adj, np.ndarray):
         adj_tilde = adj + np.eye(N)
-        degs_inv = np.power(adj_tilde.sum(0),
-                            -0.5)  # we assume undirected graphs, so it does not matter if we use out or in degree
+        degs_inv = np.power(
+            adj_tilde.sum(0), -0.5
+        )  # we assume undirected graphs, so it does not matter if we use out or in degree
         adj_norm = np.multiply(np.multiply(adj_tilde, degs_inv[None, :]), degs_inv[:, None])
     elif torch.is_tensor(adj):
         if asserts:
@@ -42,8 +43,7 @@ def all_pairs_shortest_paths(edges=None, G=None, directed=False, cutoff=None):
             create_using = nx.Graph
         G = nx.from_edgelist(edges, create_using=create_using)
     sps = nx.all_pairs_dijkstra_path_length(G, cutoff=cutoff)
-    values = torch.tensor([(dct[0], key, value) for dct in sps for key, value in dct[1].items()],
-                          dtype=torch.long)
+    values = torch.tensor([(dct[0], key, value) for dct in sps for key, value in dct[1].items()], dtype=torch.long)
     return values
 
 
@@ -58,12 +58,12 @@ def tree_shortest_paths(adj, undirected=True):
     tree = nx.DiGraph(np.triu(adj.cpu().numpy()))
     N = tree.number_of_nodes()
     lca = dict(nx.algorithms.lowest_common_ancestors.tree_all_pairs_lowest_common_ancestor(tree, root=0))
-    lca_mat = np.zeros((N, N), dtype='int')
+    lca_mat = np.zeros((N, N), dtype="int")
     lca_mat[tuple(np.transpose(list(lca.keys())))] = np.array(list(lca.values()))
     if undirected:
         lca_mat[tuple(np.transpose(list(lca.keys()))[::-1])] = np.array(list(lca.values()))
     depths = nx.single_source_dijkstra_path_length(tree, 0)
-    all_depths = np.ones(N, dtype='float32') * -1
+    all_depths = np.ones(N, dtype="float32") * -1
     node_ids = [x[0] for x in depths.items()]
     node_depths = [x[1] for x in depths.items()]
     all_depths[node_ids] = np.array(node_depths)
@@ -95,10 +95,9 @@ def next_sibling_shortest_paths(tree_edges):
     sibling_edges = next_sibling_edges(tree_edges).numpy()
     G_siblings = nx.from_edgelist(sibling_edges, create_using=nx.DiGraph)
     sps = list(nx.all_pairs_dijkstra_path_length(G_siblings))
-    sibling_sp_edgelist = torch.tensor([(from_node, to_node, dist)
-                                        for from_node, dct in sps
-                                        for to_node, dist in dct.items()],
-                                       dtype=torch.long)
+    sibling_sp_edgelist = torch.tensor(
+        [(from_node, to_node, dist) for from_node, dct in sps for to_node, dist in dct.items()], dtype=torch.long
+    )
     sibling_sp_edgelist = sibling_sp_edgelist[sibling_sp_edgelist[:, 2] > 0]
 
     return sibling_sp_edgelist

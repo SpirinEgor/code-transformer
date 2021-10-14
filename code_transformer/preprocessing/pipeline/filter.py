@@ -17,14 +17,12 @@ from typing import List
 
 
 class CodeFilter(ABC):
-
     @abstractmethod
     def filter(self, processed_code: str):
         pass
 
 
 class TokenFilter(ABC):
-
     def set_processed_code(self, processed_code: str):
         self.processed_code = processed_code
 
@@ -34,7 +32,6 @@ class TokenFilter(ABC):
 
 
 class CodePreprocessor:
-
     def __init__(self, tokenizer, code_filters: List[CodeFilter], token_filters: List[TokenFilter]):
         self.tokenizer = tokenizer
         self.code_filters = code_filters
@@ -52,7 +49,6 @@ class CodePreprocessor:
 
 
 class CodePreprocessingException(Exception):
-
     def __init__(self, code_snippet, msg=""):
         self.code_snippet = code_snippet
         self.msg = msg
@@ -65,8 +61,8 @@ class CodePreprocessingException(Exception):
 # Stage 1 CodeFilter: Directly transform code snippet text
 # =============================================================================
 
-class CommentsRemover(CodeFilter):
 
+class CommentsRemover(CodeFilter):
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
 
@@ -75,22 +71,21 @@ class CommentsRemover(CodeFilter):
         last_token_comment = None
         for t in tokens:
             if last_token_comment:
-                if t.string == '\n':
-                    last_token_comment.string = ''
+                if t.string == "\n":
+                    last_token_comment.string = ""
                 else:
-                    last_token_comment.string = '\n'
+                    last_token_comment.string = "\n"
                 last_token_comment = None
             if t.token_type in pygments.token.Comment.Multiline:
-                t.string = ' '
+                t.string = " "
             elif t.token_type in pygments.token.Literal.String.Doc:
-                t.string = ' '
+                t.string = " "
             elif t.token_type in pygments.token.Comment:
                 last_token_comment = t
-        return ''.join([t.string for t in tokens])
+        return "".join([t.string for t in tokens])
 
 
 class EmptyLinesRemover(CodeFilter):
-
     def filter(self, code):
         lines = io.StringIO(code).readlines()
         stripped_lines = []
@@ -104,15 +99,15 @@ class EmptyLinesRemover(CodeFilter):
                 if line.isspace():
                     last_line_empty = True
                 stripped_lines.append(line)
-        return ''.join(stripped_lines)
+        return "".join(stripped_lines)
 
 
 # =============================================================================
 # Stage 2 TokenFilter: transform already generated tokens
 # =============================================================================
 
-class StringMasker(TokenFilter):
 
+class StringMasker(TokenFilter):
     def __init__(self, string_mask):
         self.string_mask = string_mask
 
@@ -122,8 +117,9 @@ class StringMasker(TokenFilter):
         for t in tokens:
             # Replace String literals with a MASK
             if t.token_type not in pygments.token.Literal.String and string_start:
-                string_token = CTToken(self.string_mask, RangeInterval(string_start, string_end),
-                                       pygments.token.Literal.String)
+                string_token = CTToken(
+                    self.string_mask, RangeInterval(string_start, string_end), pygments.token.Literal.String
+                )
                 string_start = None
                 yield string_token
 
@@ -138,7 +134,6 @@ class StringMasker(TokenFilter):
 
 
 class NumbersMasker(TokenFilter):
-
     def __init__(self, numbers_mask):
         self.numbers_mask = numbers_mask
 
@@ -150,7 +145,6 @@ class NumbersMasker(TokenFilter):
 
 
 class IndentTransformer(TokenFilter):
-
     def __init__(self, indent_token, dedent_token, fix_first_indent=True, allow_empty_methods=False):
         self.indent_token = indent_token
         self.dedent_token = dedent_token
@@ -186,15 +180,16 @@ class IndentTransformer(TokenFilter):
                 # allow_empty_methods is set, then the IndentTransformer just passes through all tokens
                 for t in tokens:
                     if t.string.isspace():
-                        if '\n' in t.string:
-                            t.string = '\n'
+                        if "\n" in t.string:
+                            t.string = "\n"
                             yield t
                     else:
                         yield t
                 return
             else:
-                raise CodePreprocessingException('',
-                                                 f"Snippet `{' '.join([t.string for t in tokens])}` is not comprised of more than one line")
+                raise CodePreprocessingException(
+                    "", f"Snippet `{' '.join([t.string for t in tokens])}` is not comprised of more than one line"
+                )
         indent_style = min(most_common_indent_changes)
 
         # Go through all tokens, identify new lines and remove whitespaces at the beginning of new lines. Indent/Dedent
@@ -206,7 +201,7 @@ class IndentTransformer(TokenFilter):
         for t in tokens:
             if t.string.isspace():
                 # end of line: have to reset variables for next line
-                if '\n' in t.string:
+                if "\n" in t.string:
                     lines = t.string.splitlines()
 
                     beginning_of_line = True
@@ -214,11 +209,11 @@ class IndentTransformer(TokenFilter):
                     # after a \n in the same token. If these whitespaces appear after the last \n in a token they
                     # must be added to the indentation of the new line.
                     current_indent = len(lines[-1])
-                    lines[-1] = ''
+                    lines[-1] = ""
                     if len(lines) > 1:
-                        t.string = '\n'.join(lines)
+                        t.string = "\n".join(lines)
                     else:
-                        t.string = '\n'
+                        t.string = "\n"
                     yield t
                 # If whitespaces appear at beginning of line we just sum their length
                 elif beginning_of_line:
@@ -240,18 +235,24 @@ class IndentTransformer(TokenFilter):
                     # Generate a separate token for every indent/dedent
                     if indent_change > 0:
                         for i in range(int(indent_change / indent_style)):
-                            yield CTToken(self.indent_token,
-                                          RangeInterval(
-                                               TextPosition(t.source_span.start_pos.line, i * indent_style + 1),
-                                               TextPosition(t.source_span.start_pos.line,
-                                                            (i + 1) * indent_style + 1)),
-                                          self.indent_token)
+                            yield CTToken(
+                                self.indent_token,
+                                RangeInterval(
+                                    TextPosition(t.source_span.start_pos.line, i * indent_style + 1),
+                                    TextPosition(t.source_span.start_pos.line, (i + 1) * indent_style + 1),
+                                ),
+                                self.indent_token,
+                            )
                     else:
                         for i in range(-int(indent_change / indent_style)):
-                            yield CTToken(self.dedent_token,
-                                          RangeInterval(TextPosition(t.source_span.start_pos.line, 1),
-                                                         TextPosition(t.source_span.start_pos.line, 1)),
-                                          self.dedent_token)
+                            yield CTToken(
+                                self.dedent_token,
+                                RangeInterval(
+                                    TextPosition(t.source_span.start_pos.line, 1),
+                                    TextPosition(t.source_span.start_pos.line, 1),
+                                ),
+                                self.dedent_token,
+                            )
 
                     previous_indent = current_indent
                 beginning_of_line = False
@@ -261,10 +262,9 @@ class IndentTransformer(TokenFilter):
 
 
 class WhitespaceRemover(TokenFilter):
-
     def filter(self, tokens):
         for t in tokens:
-            if t.string != ' ':
+            if t.string != " ":
                 yield t
 
 
@@ -294,7 +294,7 @@ class SubTokenizer(TokenFilter):
                 t.string = split_identifier_into_parts(t.string)
             else:
                 t.string = [t.string]
-            t.string = t.string[:self.num_sub_tokens]
+            t.string = t.string[: self.num_sub_tokens]
             yield CTToken(t.string, t.source_span, t.token_type)
 
 
@@ -302,8 +302,8 @@ class SubTokenizer(TokenFilter):
 # Stage 3: Filters that filter entire samples
 # =============================================================================
 
-class TokensLimiter:
 
+class TokensLimiter:
     def __init__(self, threshold):
         self.threshold = threshold
 

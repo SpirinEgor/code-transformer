@@ -19,15 +19,28 @@ class CTLanguageModelingDataset(CTBaseDataset):
     Shuffling is not directly provided by the dataset but by the underlying data manager.
     """
 
-    def __init__(self, data_manager: CTPreprocessedDataManager, token_distances=None, max_distance_mask=None,
-                 num_sub_tokens=5, num_labels_per_sample=5, max_num_tokens=MAX_NUM_TOKENS, use_pointer_network=False):
+    def __init__(
+        self,
+        data_manager: CTPreprocessedDataManager,
+        token_distances=None,
+        max_distance_mask=None,
+        num_sub_tokens=5,
+        num_labels_per_sample=5,
+        max_num_tokens=MAX_NUM_TOKENS,
+        use_pointer_network=False,
+    ):
         """
         :param num_labels_per_sample: the number of tokens per sample to be predicted
         """
 
-        super(CTLanguageModelingDataset, self).__init__(data_manager, token_distances, max_distance_mask,
-                                                        num_sub_tokens, max_num_tokens=max_num_tokens,
-                                                        use_pointer_network=use_pointer_network)
+        super(CTLanguageModelingDataset, self).__init__(
+            data_manager,
+            token_distances,
+            max_distance_mask,
+            num_sub_tokens,
+            max_num_tokens=max_num_tokens,
+            use_pointer_network=use_pointer_network,
+        )
         self.num_labels_per_sample = num_labels_per_sample
 
     def collate_fn(self, batch: List) -> CTBatch:
@@ -45,13 +58,20 @@ class CTLanguageModelingDataset(CTBaseDataset):
         padding_mask = batch.pad_mask
         max_seq_length = seq_tensors.shape[1]
 
-        target_mapping, target_mapping_per_token = sample_targets(num_predict=self.num_labels_per_sample,
-                                                                  seq_len=max_seq_length,
-                                                                  batch_size=batch.tokens.shape[0],
-                                                                  pad_mask=padding_mask)
-        perm = permutation_attention_mask(seq_tensors, target_mapping_per_token,
-                                          max_seq_length, max_seq_length, sep_id=self.word_vocab.vocabulary[SEP_TOKEN],
-                                          cls_id=self.word_vocab.vocabulary[CLS_TOKEN])
+        target_mapping, target_mapping_per_token = sample_targets(
+            num_predict=self.num_labels_per_sample,
+            seq_len=max_seq_length,
+            batch_size=batch.tokens.shape[0],
+            pad_mask=padding_mask,
+        )
+        perm = permutation_attention_mask(
+            seq_tensors,
+            target_mapping_per_token,
+            max_seq_length,
+            max_seq_length,
+            sep_id=self.word_vocab.vocabulary[SEP_TOKEN],
+            cls_id=self.word_vocab.vocabulary[CLS_TOKEN],
+        )
         perm_mask = perm[0].long()
         perm_mask |= max_distance_masks  # Merge max distance attention mask with regular attention mask
 
@@ -70,21 +90,39 @@ class CTLanguageModelingDataset(CTBaseDataset):
                     if j in idx_func_tokens:
                         idx_func_sub_tokens.extend(range(current_pos, current_pos + n_sub_tokens))
                     current_pos += n_sub_tokens
-                extended_vocabulary_ids.append([v_id.item() for j, v_id in enumerate(batch.extended_vocabulary_ids[idx_sample]) if j not in idx_func_sub_tokens and v_id.item() != self.sequence_pad_value])
+                extended_vocabulary_ids.append(
+                    [
+                        v_id.item()
+                        for j, v_id in enumerate(batch.extended_vocabulary_ids[idx_sample])
+                        if j not in idx_func_sub_tokens and v_id.item() != self.sequence_pad_value
+                    ]
+                )
                 batch.pointer_pad_mask[idx_sample][idx_func_tokens] = False
-                assert len(extended_vocabulary_ids[-1]) == batch.pointer_pad_mask[idx_sample].sum().item(), "number of sub tokens in extended_vocabulary_ids does not match number of non-masked pointer sub tokens"
+                assert (
+                    len(extended_vocabulary_ids[-1]) == batch.pointer_pad_mask[idx_sample].sum().item()
+                ), "number of sub tokens in extended_vocabulary_ids does not match number of non-masked pointer sub tokens"
             seq_len_subtokens = max([len(evi) for evi in extended_vocabulary_ids])
-            extended_vocabulary_ids = torch.tensor([
-                pad_list(evi, seq_len_subtokens, self.sequence_pad_value) for evi in extended_vocabulary_ids])
+            extended_vocabulary_ids = torch.tensor(
+                [pad_list(evi, seq_len_subtokens, self.sequence_pad_value) for evi in extended_vocabulary_ids]
+            )
 
-        return CTBatch(tokens=seq_tensors, token_types=batch.token_types, node_types=batch.node_types,
-                       relative_distances=batch.relative_distances, distance_names=batch.distance_names,
-                       sequence_lengths=seq_lengths, pad_mask=batch.pad_mask, labels=labels,
-                       perm_mask=perm_mask, target_mapping=target_mapping,
-                       target_mapping_per_token=target_mapping_per_token,
-                       extended_vocabulary=batch.extended_vocabulary,
-                       extended_vocabulary_ids=extended_vocabulary_ids,
-                       pointer_pad_mask=batch.pointer_pad_mask, languages=batch.languages)
+        return CTBatch(
+            tokens=seq_tensors,
+            token_types=batch.token_types,
+            node_types=batch.node_types,
+            relative_distances=batch.relative_distances,
+            distance_names=batch.distance_names,
+            sequence_lengths=seq_lengths,
+            pad_mask=batch.pad_mask,
+            labels=labels,
+            perm_mask=perm_mask,
+            target_mapping=target_mapping,
+            target_mapping_per_token=target_mapping_per_token,
+            extended_vocabulary=batch.extended_vocabulary,
+            extended_vocabulary_ids=extended_vocabulary_ids,
+            pointer_pad_mask=batch.pointer_pad_mask,
+            languages=batch.languages,
+        )
 
 
 class CTLanguageModelingDatasetNoPunctuation(CTLanguageModelingDataset):
@@ -94,15 +132,26 @@ class CTLanguageModelingDatasetNoPunctuation(CTLanguageModelingDataset):
     sequence unnecessarily.
     """
 
-    def __init__(self, data_manager: CTPreprocessedDataManager, token_distances=None, max_distance_mask=None,
-                 num_sub_tokens=5, num_labels_per_sample=5, min_sequence_length=5, max_num_tokens=MAX_NUM_TOKENS,
-                 use_pointer_network=False):
-        super(CTLanguageModelingDatasetNoPunctuation, self).__init__(data_manager, token_distances=token_distances,
-                                                                     max_distance_mask=max_distance_mask,
-                                                                     num_sub_tokens=num_sub_tokens,
-                                                                     num_labels_per_sample=num_labels_per_sample,
-                                                                     max_num_tokens=None,
-                                                                     use_pointer_network=use_pointer_network)
+    def __init__(
+        self,
+        data_manager: CTPreprocessedDataManager,
+        token_distances=None,
+        max_distance_mask=None,
+        num_sub_tokens=5,
+        num_labels_per_sample=5,
+        min_sequence_length=5,
+        max_num_tokens=MAX_NUM_TOKENS,
+        use_pointer_network=False,
+    ):
+        super(CTLanguageModelingDatasetNoPunctuation, self).__init__(
+            data_manager,
+            token_distances=token_distances,
+            max_distance_mask=max_distance_mask,
+            num_sub_tokens=num_sub_tokens,
+            num_labels_per_sample=num_labels_per_sample,
+            max_num_tokens=None,
+            use_pointer_network=use_pointer_network,
+        )
         self.config = data_manager.load_config()
         self.min_sequence_length = min_sequence_length
         self.max_num_tokens_no_punctuation = max_num_tokens
@@ -126,8 +175,10 @@ class CTLanguageModelingDatasetNoPunctuation(CTLanguageModelingDataset):
         token_types_no_punctuation = sample.token_types[idx]
         tokens_no_punctuation = sample.tokens[idx]
 
-        if len(tokens_no_punctuation) < self.num_labels_per_sample \
-                or len(tokens_no_punctuation) < self.min_sequence_length:
+        if (
+            len(tokens_no_punctuation) < self.num_labels_per_sample
+            or len(tokens_no_punctuation) < self.min_sequence_length
+        ):
             return next(self)
 
         pointer_pad_mask = sample.pointer_pad_mask
@@ -146,10 +197,21 @@ class CTLanguageModelingDatasetNoPunctuation(CTLanguageModelingDataset):
             pointer_pad_mask = sample.pointer_pad_mask[idx]
             extended_vocabulary_ids = [sample.extended_vocabulary_ids[i] for i in idx_sub_tokens]
 
-            assert pointer_pad_mask.sum() == len(extended_vocabulary_ids), \
-                f"Number of non-masked subtokens ({pointer_pad_mask.sum().item()}) does not match number of extended vocabulary ids ({len(extended_vocabulary_ids)})"
+            assert pointer_pad_mask.sum() == len(
+                extended_vocabulary_ids
+            ), f"Number of non-masked subtokens ({pointer_pad_mask.sum().item()}) does not match number of extended vocabulary ids ({len(extended_vocabulary_ids)})"
 
-        return CTBaseSample(tokens_no_punctuation, token_types_no_punctuation, node_types_no_punctuation,
-                            distance_matrices_no_punctuation, sample.binning_vectors, sample.distance_names,
-                            sample.func_name, sample.docstring, sample.extended_vocabulary,
-                            extended_vocabulary_ids, pointer_pad_mask, sample.language)
+        return CTBaseSample(
+            tokens_no_punctuation,
+            token_types_no_punctuation,
+            node_types_no_punctuation,
+            distance_matrices_no_punctuation,
+            sample.binning_vectors,
+            sample.distance_names,
+            sample.func_name,
+            sample.docstring,
+            sample.extended_vocabulary,
+            extended_vocabulary_ids,
+            pointer_pad_mask,
+            sample.language,
+        )

@@ -18,7 +18,7 @@ class TextPosition:
 
     @staticmethod
     def from_ast_pos(ast_pos):
-        return TextPosition(ast_pos['line'], ast_pos['column'])
+        return TextPosition(ast_pos["line"], ast_pos["column"])
 
     def __lt__(self, other):
         if self.line == other.line:
@@ -44,11 +44,11 @@ class RangeInterval:
 
     @staticmethod
     def from_semantic(span):
-        return RangeInterval(TextPosition.from_ast_pos(span['start']), TextPosition.from_ast_pos(span['end']))
+        return RangeInterval(TextPosition.from_ast_pos(span["start"]), TextPosition.from_ast_pos(span["end"]))
 
     @staticmethod
     def from_java_parser(span):
-        return RangeInterval(TextPosition.from_ast_pos(span['begin']), TextPosition.from_ast_pos(span['end']))
+        return RangeInterval(TextPosition.from_ast_pos(span["begin"]), TextPosition.from_ast_pos(span["end"]))
 
     @staticmethod
     def from_python_token(span):
@@ -58,8 +58,10 @@ class RangeInterval:
 
     @staticmethod
     def from_compressed(compressed_interval):
-        return RangeInterval(TextPosition(compressed_interval[0][0], compressed_interval[0][1]),
-                             TextPosition(compressed_interval[1][0], compressed_interval[1][1]))
+        return RangeInterval(
+            TextPosition(compressed_interval[0][0], compressed_interval[0][1]),
+            TextPosition(compressed_interval[1][0], compressed_interval[1][1]),
+        )
 
     @staticmethod
     def empty_interval():
@@ -87,7 +89,7 @@ class RangeInterval:
                 idx_end = self.end_pos.column - 1
             substring.append(line[idx_start:idx_end])
 
-        return ''.join(substring)
+        return "".join(substring)
 
     def is_smaller_than(self, other):
         line_span_self = self.end_pos.line - self.start_pos.line

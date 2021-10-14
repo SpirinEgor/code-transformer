@@ -2,15 +2,16 @@ from code_transformer.configuration.configuration_utils import ModelConfiguratio
 
 
 class TransformerLMEncoderConfig(ModelConfiguration):
-
-    def __init__(self,
-                 transformer,  #: Union[CodeTransformer, CodeTransformerCoreConfig],
-                 vocab_size=32000,
-                 num_node_types=None,
-                 num_token_types=None,
-                 subtokens_per_token=5,
-                 input_nonlinearity=None,
-                 num_languages=None):
+    def __init__(
+        self,
+        transformer,  #: Union[CodeTransformer, CodeTransformerCoreConfig],
+        vocab_size=32000,
+        num_node_types=None,
+        num_token_types=None,
+        subtokens_per_token=5,
+        input_nonlinearity=None,
+        num_languages=None,
+    ):
         super(TransformerLMEncoderConfig, self).__init__()
 
         self.transformer = transformer

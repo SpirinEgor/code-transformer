@@ -30,7 +30,6 @@ class ExponentialBinning:
 
 
 class EqualBinning:
-
     def __call__(self, x, n_bins):
         return x
 
@@ -49,10 +48,10 @@ def calculate_bins(x, n_bins, n_fixed, hist_func, trans_func=EqualBinning()):
     """
     if n_bins <= n_fixed:
         # Only few unique values => resorting to regular binning
-        return hist_func(x, n_bins-1)
+        return hist_func(x, n_bins - 1)
     if min(x) < 0:
         # Two-sided binning (negative and positive values)
-        lower_end = -math.floor(n_fixed / 2)# - 1
+        lower_end = -math.floor(n_fixed / 2)  # - 1
         upper_end = math.ceil(n_fixed / 2)
         fixed_bins = range(lower_end, upper_end)
         # yields a zero-centered list of bin boundaries of size n_fixed + 1. The +1 is necessary as bins are intervals
@@ -81,8 +80,9 @@ def calculate_bins(x, n_bins, n_fixed, hist_func, trans_func=EqualBinning()):
         else:
             bins_upper = []
 
-        assert len(bins_lower) + len(fixed_bins) + len(
-            bins_upper) == n_bins, f"Calculated wrong amount of bin edge points. Expected {n_bins} got {len(bins_lower) + len(fixed_bins) + len(bins_upper)}"
+        assert (
+            len(bins_lower) + len(fixed_bins) + len(bins_upper) == n_bins
+        ), f"Calculated wrong amount of bin edge points. Expected {n_bins} got {len(bins_lower) + len(fixed_bins) + len(bins_upper)}"
 
         bins = np.concatenate((bins_lower, fixed_bins, bins_upper))
         assert (sorted(bins) == bins).all(), f"Calculated bins should increase monotonically. Calculated {bins}"
@@ -93,7 +93,9 @@ def calculate_bins(x, n_bins, n_fixed, hist_func, trans_func=EqualBinning()):
             transformed_bins = [x.max().item()]
         else:
             transformed_bins = hist_func(x[np.where(x > n_fixed)], n_bins - n_fixed - 1)
-        assert len(transformed_bins) + n_fixed == n_bins, f"Calculated wrong amount of bin edge points. Expected {n_bins} got {len(transformed_bins) + n_fixed}"
+        assert (
+            len(transformed_bins) + n_fixed == n_bins
+        ), f"Calculated wrong amount of bin edge points. Expected {n_bins} got {len(transformed_bins) + n_fixed}"
 
         return np.concatenate((range(n_fixed), transformed_bins))
 
@@ -108,13 +110,11 @@ def hist_by_area(x, n_bins, trans_func=EqualBinning()):
     pow = 0.5
     dx = np.diff(np.sort(x))
     tmp = np.cumsum(dx ** pow)
-    tmp = np.pad(tmp, (1, 0), 'constant')
+    tmp = np.pad(tmp, (1, 0), "constant")
     max_x = tmp.max()
     bin_samples = np.linspace(0, max_x, n_bins + 1)
     bin_samples = trans_func(bin_samples, n_bins)
-    return np.interp(bin_samples,
-                     tmp,
-                     np.sort(x))
+    return np.interp(bin_samples, tmp, np.sort(x))
 
 
 def hist_by_number(x, n_bins, trans_func=EqualBinning()):
@@ -127,6 +127,4 @@ def hist_by_number(x, n_bins, trans_func=EqualBinning()):
     n_points = len(x)
     bin_samples = np.linspace(0, n_points, n_bins + 1)
     bin_samples = trans_func(bin_samples, n_bins)
-    return np.interp(bin_samples,
-                     np.arange(n_points),
-                     np.sort(x))
+    return np.interp(bin_samples, np.arange(n_points), np.sort(x))

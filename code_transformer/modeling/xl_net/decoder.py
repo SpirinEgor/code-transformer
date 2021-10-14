@@ -15,12 +15,14 @@ class XLNetTransformerDecoder(TransformerLMDecoder):
         super(XLNetTransformerDecoder, self).__init__(config)
 
     def forward_batch(self, batch: CTBatch):
-        return self.forward(input_ids=batch.tokens,
-                            token_type_ids=batch.token_types,
-                            pad_mask=1 - batch.pad_mask,
-                            attention_mask=batch.perm_mask,
-                            target_mapping=batch.target_mapping,
-                            labels=batch.labels,
-                            extended_vocabulary_ids=batch.extended_vocabulary_ids,
-                            pointer_pad_mask=batch.pointer_pad_mask,
-                            languages=batch.languages)
+        return self.forward(
+            input_ids=batch.tokens,
+            token_type_ids=batch.token_types,
+            pad_mask=1 - batch.pad_mask,
+            attention_mask=batch.perm_mask,
+            target_mapping=batch.target_mapping,
+            labels=batch.labels,
+            extended_vocabulary_ids=batch.extended_vocabulary_ids,
+            pointer_pad_mask=batch.pointer_pad_mask,
+            languages=batch.languages,
+        )

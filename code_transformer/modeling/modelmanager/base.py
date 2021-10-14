@@ -24,7 +24,7 @@ class ModelManager:
     def save_snapshot(self, run_id, model_params, iteration):
         snapshot_path = f"{self._snapshot_location(run_id)}/snapshot-{iteration}.p"
         create_directories(snapshot_path)
-        with open(snapshot_path, 'wb') as f:
+        with open(snapshot_path, "wb") as f:
             torch.save(model_params, f)
 
     def delete_snapshot(self, run_id, snapshot_iteration):
@@ -51,10 +51,10 @@ class ModelManager:
         if gpu:
             map_location = None
         else:
-            map_location = torch.device('cpu')
+            map_location = torch.device("cpu")
 
-        if snapshot_iteration == 'latest':
-            list_of_paths = Path(self._snapshot_location(run_id)).glob('snapshot-*.p')
+        if snapshot_iteration == "latest":
+            list_of_paths = Path(self._snapshot_location(run_id)).glob("snapshot-*.p")
             snapshot_path = max(list_of_paths, key=os.path.getctime)
         else:
             snapshot_path = f"{self._snapshot_location(run_id)}/snapshot-{snapshot_iteration}.p"
@@ -76,7 +76,7 @@ class ModelManager:
         return [run_dir.stem for run_dir in runs_dir.iterdir()]
 
     def get_available_snapshots(self, run_id):
-        return list_file_numbering(self._snapshot_location(run_id), 'snapshot', '.p')
+        return list_file_numbering(self._snapshot_location(run_id), "snapshot", ".p")
 
     def generate_run_name(self):
         return generate_run_name(f"{self.model_store_location}/{self.model_type}", self.run_prefix)
@@ -89,11 +89,11 @@ class ModelManager:
         return f"{self.model_store_location}/{self.model_type}/{self._run_id(run_id)}"
 
     def _prepare_model_config(self, config):
-        config = config['model'].copy()
-        loss_fct = LabelSmoothingLoss(config['label_smoothing'])
-        config['loss_fct'] = loss_fct
-        del config['label_smoothing']
-        del config['with_cuda']
+        config = config["model"].copy()
+        loss_fct = LabelSmoothingLoss(config["label_smoothing"])
+        config["loss_fct"] = loss_fct
+        del config["label_smoothing"]
+        del config["with_cuda"]
         return config
 
     def _run_id(self, run_id):

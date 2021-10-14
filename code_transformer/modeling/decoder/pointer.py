@@ -11,7 +11,6 @@ from code_transformer.configuration.attention import AttentionType
 
 
 class PointerNetwork(nn.Module):
-
     def __init__(self, d_model, subtokens_per_token, pointer_attention_type: AttentionType, n_attention_heads=8):
         super(PointerNetwork, self).__init__()
 
@@ -56,17 +55,21 @@ class PointerNetwork(nn.Module):
         # sequences. These are then padded in the end with [0, ..., 0] representation vectors
         # all_emb[-1][0] takes the content stream of the last layer, all_emb[-1][1] would take query stream
 
-        pointer_input_subtokens = self.subtoken_extractor_linear(pointer_input_subtokens).view(bsz, seq_len,
-                                                                                               self.d_model, -1)
+        pointer_input_subtokens = self.subtoken_extractor_linear(pointer_input_subtokens).view(
+            bsz, seq_len, self.d_model, -1
+        )
         pointer_input_subtokens = pointer_input_subtokens.transpose(2, 3)
         pointer_input_subtokens = [s[m] for s, m in zip(pointer_input_subtokens, pointer_pad_mask)]
         # bsz x seq_len_subtokens
         pointer_subtoken_mask = pad_sequence(
             [torch.ones((s.shape[0],), dtype=torch.bool, device=device) for s in pointer_input_subtokens],
-            batch_first=True, padding_value=False)
+            batch_first=True,
+            padding_value=False,
+        )
         # Append ones to subtoken mask to always pass sentinel
         self.pointer_subtoken_mask = torch.cat(
-            [pointer_subtoken_mask, torch.ones((bsz, 1), dtype=torch.bool, device=device)], dim=1)
+            [pointer_subtoken_mask, torch.ones((bsz, 1), dtype=torch.bool, device=device)], dim=1
+        )
         # bsz x seq_len_subtokens x d_model
         pointer_input_subtokens = pad_sequence(pointer_input_subtokens, batch_first=True)
         self.seq_len_subtokens = pointer_input_subtokens.shape[1]
@@ -77,7 +80,8 @@ class PointerNetwork(nn.Module):
         self.len_vocab = len_vocab
         self.len_extended_vocab = max(len_vocab, extended_vocabulary_ids.max().item()) + 1
         self.pointer_input_embeddings = torch.cat(
-            [pointer_input_subtokens, self.sentinel.unsqueeze(0).expand(bsz, self.d_model, 1).transpose(1, 2)], dim=1)
+            [pointer_input_subtokens, self.sentinel.unsqueeze(0).expand(bsz, self.d_model, 1).transpose(1, 2)], dim=1
+        )
         self.extended_vocabulary_ids = extended_vocabulary_ids
 
     def calculate_pointer_attention(self, pointer_query: torch.Tensor):
@@ -115,10 +119,12 @@ class PointerNetwork(nn.Module):
             pointer_attention = F.log_softmax(pointer_attention, dim=1)
         elif self.pointer_attention_type == AttentionType.MULTIHEAD:
             # Multihead attention
-            pointer_attention = self.multihead_attention(pointer_query.permute(2, 0, 1),
-                                                         self.pointer_input_embeddings.transpose(0, 1),
-                                                         self.pointer_input_embeddings.transpose(0, 1),
-                                                         key_padding_mask=~self.pointer_subtoken_mask)
+            pointer_attention = self.multihead_attention(
+                pointer_query.permute(2, 0, 1),
+                self.pointer_input_embeddings.transpose(0, 1),
+                self.pointer_input_embeddings.transpose(0, 1),
+                key_padding_mask=~self.pointer_subtoken_mask,
+            )
 
             pointer_attention = pointer_attention[1]
             pointer_attention = pointer_attention.squeeze(1)
@@ -126,8 +132,8 @@ class PointerNetwork(nn.Module):
             pointer_attention[~self.pointer_subtoken_mask] = torch.finfo(torch.float).eps
             pointer_attention = pointer_attention.log()
 
-        if torch.isnan(pointer_attention).any() or (pointer_attention == -float('inf')).any():
-            print('NaN in pointer attention after softmax!', pointer_attention)
+        if torch.isnan(pointer_attention).any() or (pointer_attention == -float("inf")).any():
+            print("NaN in pointer attention after softmax!", pointer_attention)
         pointer_gate = pointer_attention[:, -1].unsqueeze(-1)
 
         self.pointer_attention_distribution = pointer_attention[:, :-1]
@@ -138,14 +144,16 @@ class PointerNetwork(nn.Module):
         M[
             torch.arange(bsz).unsqueeze(-1).expand(bsz, self.seq_len_subtokens).reshape(-1),
             self.extended_vocabulary_ids.view(-1),
-            torch.arange(self.seq_len_subtokens).repeat(bsz)] = 1
+            torch.arange(self.seq_len_subtokens).repeat(bsz),
+        ] = 1
         pointer_attention = torch.bmm(M, pointer_attention[:, :-1].unsqueeze(-1).exp()).squeeze()
         pointer_attention = (pointer_attention + torch.finfo(torch.float).eps).log()
         pointer_attention = pointer_attention - torch.log1p(
-            -pointer_gate.exp().view(bsz, -1) + torch.finfo(torch.float).eps)
+            -pointer_gate.exp().view(bsz, -1) + torch.finfo(torch.float).eps
+        )
 
         # Avoid having -inf in attention scores as they produce NaNs during backward pass
-        pointer_attention[pointer_attention == -float('inf')] = torch.finfo(torch.float).min
+        pointer_attention[pointer_attention == -float("inf")] = torch.finfo(torch.float).min
 
         if torch.isnan(pointer_attention).any():
             print("NaN in final pointer attention!", pointer_attention)
@@ -159,11 +167,15 @@ class PointerNetwork(nn.Module):
         log_probs = F.log_softmax(subtoken_logits.view(-1, subtoken_logits.size(-1)), dim=1)
 
         # Decoder cannot predict extended vocabulary tokens. Thus, these have 0 probability
-        log_probs = F.pad(log_probs, [0, self.len_extended_vocab - self.len_vocab], value=-float('inf'))
+        log_probs = F.pad(log_probs, [0, self.len_extended_vocab - self.len_vocab], value=-float("inf"))
 
         # Combine decoder probability distribution with pointer attention distribution in log space
-        p = torch.stack([log_probs + self.pointer_gate,
-                         self.pointer_attention + (1 - self.pointer_gate.exp() + torch.finfo(torch.float).eps).log()])
+        p = torch.stack(
+            [
+                log_probs + self.pointer_gate,
+                self.pointer_attention + (1 - self.pointer_gate.exp() + torch.finfo(torch.float).eps).log(),
+            ]
+        )
         log_probs = torch.logsumexp(p, dim=0)
 
         subtoken_logits = log_probs

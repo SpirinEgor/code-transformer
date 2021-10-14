@@ -20,9 +20,20 @@ class CTPreprocessedDataManager(DataManager):
     The main data manager for preprocessed data. It takes care of folder structure, loading and saving dataset slices.
     """
 
-    def __init__(self, data_location: str, language: str, partition="train", shuffle=False, infinite_loading=False,
-                 mini_dataset=False, load_single_file=None, sort_by_length=False, chunk_size=None,
-                 filter_language: str = None, dataset_imbalance: Tuple = None):
+    def __init__(
+        self,
+        data_location: str,
+        language: str,
+        partition="train",
+        shuffle=False,
+        infinite_loading=False,
+        mini_dataset=False,
+        load_single_file=None,
+        sort_by_length=False,
+        chunk_size=None,
+        filter_language: str = None,
+        dataset_imbalance: Tuple = None,
+    ):
         """
         :param data_location: the main folder were samples will be loaded from and dataset slices saved to
         :param language: for which language samples should be loaded/saved
@@ -61,20 +72,22 @@ class CTPreprocessedDataManager(DataManager):
         self.shuffle = shuffle
         self.sort_by_length = sort_by_length
         self.chunk_size = chunk_size
-        assert not (self.shuffle and self.sort_by_length and self.chunk_size is None), \
-            "incompatible combination of sorting and shuffling."
+        assert not (
+            self.shuffle and self.sort_by_length and self.chunk_size is None
+        ), "incompatible combination of sorting and shuffling."
         self.infinite_loading = infinite_loading
         self.mini_dataset = mini_dataset
         self.load_single_file = load_single_file
         self.filter_language = filter_language
 
-        assert filter_language is None or dataset_imbalance is None, f"Cannot specify both filter_language and" \
-                                                                     f" dataset_imbalance"
+        assert filter_language is None or dataset_imbalance is None, (
+            f"Cannot specify both filter_language and" f" dataset_imbalance"
+        )
         self.dataset_imbalance_multipliers = None
         if dataset_imbalance is not None:
-            assert len(dataset_imbalance) == len(
-                language.split(',')), f"Need to specify exactly one value per language " \
-                                      f"for dataset_imbalance"
+            assert len(dataset_imbalance) == len(language.split(",")), (
+                f"Need to specify exactly one value per language " f"for dataset_imbalance"
+            )
             majority_class_size = max(dataset_imbalance)
             self.dataset_imbalance_multipliers = [majority_class_size / lang_size for lang_size in dataset_imbalance]
 
@@ -101,8 +114,13 @@ class CTPreprocessedDataManager(DataManager):
 
         return load_zipped(self.vocabularies_path)
 
-    def save_vocabularies(self, word_vocab: Vocabulary, token_type_vocab: Vocabulary, node_type_vocab: Vocabulary,
-                          word_vocab_labels: Vocabulary = None):
+    def save_vocabularies(
+        self,
+        word_vocab: Vocabulary,
+        token_type_vocab: Vocabulary,
+        node_type_vocab: Vocabulary,
+        word_vocab_labels: Vocabulary = None,
+    ):
         """
         Can only be used in stage 2
         """
@@ -121,8 +139,13 @@ class CTPreprocessedDataManager(DataManager):
 
         return load_zipped(self.word_counters_path)
 
-    def save_word_counters(self, word_counter: WordCounter, token_type_counter: WordCounter,
-                           node_type_counter: WordCounter, word_counter_labels: WordCounter = None):
+    def save_word_counters(
+        self,
+        word_counter: WordCounter,
+        token_type_counter: WordCounter,
+        node_type_counter: WordCounter,
+        word_counter_labels: WordCounter = None,
+    ):
         """
         Can only be used in stage 1
         """
@@ -132,8 +155,9 @@ class CTPreprocessedDataManager(DataManager):
             save_zipped((word_counter, token_type_counter, node_type_counter), self.word_counters_path)
         else:
             # Separate vocabularies for input tokens and method name tokens
-            save_zipped((word_counter, token_type_counter, node_type_counter, word_counter_labels),
-                        self.word_counters_path)
+            save_zipped(
+                (word_counter, token_type_counter, node_type_counter, word_counter_labels), self.word_counters_path
+            )
 
     def save_config(self, config: dict):
         """
@@ -152,12 +176,12 @@ class CTPreprocessedDataManager(DataManager):
     def approximate_total_samples(self, dataset_slice_size=None):
         if dataset_slice_size is None:
             config = self.load_config()
-            if 'dataset_slice_size' in config['execution']:
+            if "dataset_slice_size" in config["execution"]:
                 # Stage 2 dataset
-                dataset_slice_size = config['execution']['dataset_slice_size']
-            elif 'save_every' in config['execution']:
+                dataset_slice_size = config["execution"]["dataset_slice_size"]
+            elif "save_every" in config["execution"]:
                 # Stage 1 dataset
-                dataset_slice_size = config['execution']['save_every']
+                dataset_slice_size = config["execution"]["save_every"]
             else:
                 dataset_slice_size = 5000
         files = glob.glob(f"{self.dataset_location}/dataset-*.p.gzip")
@@ -171,7 +195,8 @@ class CTPreprocessedDataManager(DataManager):
         # Prepare all dataset batches in data_location for lazy loading. This is necessary as loading everything at
         # once would not fit into the main memory.
         files = glob.glob(
-            f"{self.dataset_location}/dataset-{'*' if self.load_single_file is None else self.load_single_file}.p.gzip")
+            f"{self.dataset_location}/dataset-{'*' if self.load_single_file is None else self.load_single_file}.p.gzip"
+        )
 
         # Converts the file list into a generator
         if self.shuffle and not self.mini_dataset:
@@ -203,15 +228,16 @@ class CTPreprocessedDataManager(DataManager):
         data = load_zipped(file)
 
         if self.filter_language:
-            assert isinstance(data[0],
-                              CTStage2MultiLanguageSample), f"filter_language can only be used on multilingual corpora"
+            assert isinstance(
+                data[0], CTStage2MultiLanguageSample
+            ), f"filter_language can only be used on multilingual corpora"
             data = [sample for sample in data if sample.language == self.filter_language]
         elif self.dataset_imbalance_multipliers:
-            assert isinstance(data[0],
-                              CTStage2MultiLanguageSample), f"dataset_imbalance can only be used on multilingual " \
-                                                             f"corpora"
+            assert isinstance(data[0], CTStage2MultiLanguageSample), (
+                f"dataset_imbalance can only be used on multilingual " f"corpora"
+            )
             duplicated_data = []
-            language_mapping = {lang: lang_idx for lang_idx, lang in enumerate(self.language.split(','))}
+            language_mapping = {lang: lang_idx for lang_idx, lang in enumerate(self.language.split(","))}
             for sample in data:
                 lang_idx = language_mapping[sample.language]
                 imbalance_multiplier = self.dataset_imbalance_multipliers[lang_idx]
@@ -219,8 +245,9 @@ class CTPreprocessedDataManager(DataManager):
                 # overall, the sample values correspond to the continuous imbalance multiplier
                 if floor(imbalance_multiplier) != ceil(imbalance_multiplier):
                     p = imbalance_multiplier - floor(imbalance_multiplier)
-                    imbalance_multiplier = np.random.choice([floor(imbalance_multiplier), ceil(imbalance_multiplier)],
-                                                            p=(1 - p, p))
+                    imbalance_multiplier = np.random.choice(
+                        [floor(imbalance_multiplier), ceil(imbalance_multiplier)], p=(1 - p, p)
+                    )
                 imbalance_multiplier = int(imbalance_multiplier)
                 duplicated_data.extend([deepcopy(sample) for _ in range(imbalance_multiplier)])
             data = duplicated_data
@@ -256,13 +283,34 @@ class CTBufferedDataManager(CTPreprocessedDataManager, BufferedDataManager):
     a CTBufferedDataManager simply inherits all methods and properties from both classes.
     """
 
-    def __init__(self, data_location: str, language: str, partition="train", shuffle=False, sort_by_length=False,
-                 size_load_buffer=5000,
-                 size_save_buffer=1, infinite_loading=False, mini_dataset=False, chunk_size=None,
-                 filter_language: str = None, dataset_imbalance: Tuple = None):
-        CTPreprocessedDataManager.__init__(self, data_location, language, partition, shuffle, infinite_loading,
-                                           mini_dataset, sort_by_length=sort_by_length, chunk_size=chunk_size,
-                                           filter_language=filter_language, dataset_imbalance=dataset_imbalance)
+    def __init__(
+        self,
+        data_location: str,
+        language: str,
+        partition="train",
+        shuffle=False,
+        sort_by_length=False,
+        size_load_buffer=5000,
+        size_save_buffer=1,
+        infinite_loading=False,
+        mini_dataset=False,
+        chunk_size=None,
+        filter_language: str = None,
+        dataset_imbalance: Tuple = None,
+    ):
+        CTPreprocessedDataManager.__init__(
+            self,
+            data_location,
+            language,
+            partition,
+            shuffle,
+            infinite_loading,
+            mini_dataset,
+            sort_by_length=sort_by_length,
+            chunk_size=chunk_size,
+            filter_language=filter_language,
+            dataset_imbalance=dataset_imbalance,
+        )
         # Casting self to CTPreprocessedDataManager such that BufferedDataManager uses the CTPreprocessedDataManager's
         # __iter__ and __next__ functions and not the ones defined here (which would lead to infinite recursion
         data_manager = copy(self)
@@ -301,4 +349,4 @@ def chunker(seq, size):
     The list of lists of size `size`
     """
 
-    return (seq[pos:pos + size] for pos in range(0, len(seq), size))
+    return (seq[pos : pos + size] for pos in range(0, len(seq), size))

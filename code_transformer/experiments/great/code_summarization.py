@@ -3,9 +3,9 @@ from code_transformer.experiments.mixins.code_summarization_great import CTCodeS
 from code_transformer.experiments.mixins.great_transformer import GreatTransformerDecoderMixin
 
 
-class GreatTransformerDecoderExperimentSetup(GreatTransformerDecoderMixin,
-                                             CTCodeSummarizationGreatMixin,
-                                             ExperimentSetup):
+class GreatTransformerDecoderExperimentSetup(
+    GreatTransformerDecoderMixin, CTCodeSummarizationGreatMixin, ExperimentSetup
+):
     pass
 
 

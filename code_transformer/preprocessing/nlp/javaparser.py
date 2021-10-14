@@ -17,9 +17,14 @@ def java_to_ast(*code_snippets):
     asts = []
     idx_successful = []
     for i, code_snippet in enumerate(code_snippets):
-        java_parser_call = subprocess.Popen(JAVA_PARSER_CMD, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                            stderr=subprocess.PIPE,
-                                            text=True, shell=True)
+        java_parser_call = subprocess.Popen(
+            JAVA_PARSER_CMD,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            shell=True,
+        )
         output, errors = java_parser_call.communicate(code_snippet)
         java_parser_call.wait()
         if not errors == "":

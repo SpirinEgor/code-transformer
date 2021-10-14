@@ -50,8 +50,8 @@ dataset = args.dataset
 partition = args.partition
 projects_folder = Path(f"{data_path_code2seq}/{dataset}/{partition}")
 
-reference_dataset = 'java-pretrain'
-reference_partition = 'training'
+reference_dataset = "java-pretrain"
+reference_partition = "training"
 reference_projects_folder = Path(f"{data_path_code2seq}/{reference_dataset}/{reference_partition}")
 reference_projects = {p for p in reference_projects_folder.iterdir()}
 
@@ -89,7 +89,7 @@ def read_file(f):
     try:
         return f.read_text()
     except UnicodeDecodeError:
-        return f.read_text(encoding='cp1252')
+        return f.read_text(encoding="cp1252")
 
 
 def similar(a, b):
@@ -112,7 +112,7 @@ def find_files_to_delete(batch):
     return files_to_delete
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Indexing files...")
     file_lookup = defaultdict(list)
 
@@ -132,11 +132,10 @@ if __name__ == '__main__':
             search_files = get_files_recursive(project)
             num_files = len(search_files)
             print(project.stem, num_files)
-            batch_generator = DataManager.to_batches(((search_file, file_lookup[search_file.stem]) for search_file in
-                                                      search_files),
-                                                     BATCH_SIZE)
-            result = execute_parallel(
-                delayed(find_files_to_delete)(batch) for batch in batch_generator)
+            batch_generator = DataManager.to_batches(
+                ((search_file, file_lookup[search_file.stem]) for search_file in search_files), BATCH_SIZE
+            )
+            result = execute_parallel(delayed(find_files_to_delete)(batch) for batch in batch_generator)
             for res in result:
                 files_to_delete.extend(res)
 

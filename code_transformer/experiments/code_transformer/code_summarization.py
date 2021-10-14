@@ -3,9 +3,7 @@ from code_transformer.experiments.mixins.code_summarization import CTCodeSummari
 from code_transformer.experiments.mixins.code_trans_transformer import CodeTransformerDecoderMixin
 
 
-class CodeTransDecoderExperimentSetup(CodeTransformerDecoderMixin,
-                                      CTCodeSummarizationMixin,
-                                      ExperimentSetup):
+class CodeTransDecoderExperimentSetup(CodeTransformerDecoderMixin, CTCodeSummarizationMixin, ExperimentSetup):
     pass
 
 

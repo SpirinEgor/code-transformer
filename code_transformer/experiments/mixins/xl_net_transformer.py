@@ -14,11 +14,10 @@ from code_transformer.utils.loss import LabelSmoothingLoss
 
 
 class XLNetTransformerMixin(XLNetExperimentSetup, ABC):
-
     @ex.capture(prefix="model")
     def _init_model(self, lm_encoder: dict, lm_decoder: dict, with_cuda: bool, label_smoothing=None):
 
-        if hasattr(self.dataset_train, 'num_sub_tokens_output'):
+        if hasattr(self.dataset_train, "num_sub_tokens_output"):
             num_sub_tokens_output = self.dataset_train.num_sub_tokens_output
         else:
             num_sub_tokens_output = 5
@@ -28,10 +27,12 @@ class XLNetTransformerMixin(XLNetExperimentSetup, ABC):
         if self.use_pretrained_model:
             loaded_config = self.pretrained_transformer_encoder_config
             if not config == self.pretrained_transformer_encoder_config:
-                print(f"pretrained configuration differs from given configuration. Pretrained: "
-                      f"{self.pretrained_transformer_encoder_config}, Given: {config}. Try merging...")
+                print(
+                    f"pretrained configuration differs from given configuration. Pretrained: "
+                    f"{self.pretrained_transformer_encoder_config}, Given: {config}. Try merging..."
+                )
                 loaded_config.input_nonlinearity = config.input_nonlinearity
-                loaded_config.transformer['dropout'] = config.transformer['dropout']
+                loaded_config.transformer["dropout"] = config.transformer["dropout"]
             config = loaded_config
 
         transformer_config = dict(config.transformer)
@@ -58,12 +59,15 @@ class XLNetTransformerMixin(XLNetExperimentSetup, ABC):
         else:
             loss_fct = LabelSmoothingLoss(label_smoothing)
 
-        model_config = TransformerLMDecoderConfig(xl_net_lm_encoder, sos_id=self.word_vocab[SOS_TOKEN],
-                                                       unk_id=self.word_vocab[UNKNOWN_TOKEN], loss_fct=loss_fct,
-                                                       output_subtokens_per_token=self.dataset_train.num_sub_tokens_output,
-                                                       use_pointer_network=self.use_pointer_network if hasattr(self,
-                                                                                                               "use_pointer_network") else False,
-                                                       **lm_decoder)
+        model_config = TransformerLMDecoderConfig(
+            xl_net_lm_encoder,
+            sos_id=self.word_vocab[SOS_TOKEN],
+            unk_id=self.word_vocab[UNKNOWN_TOKEN],
+            loss_fct=loss_fct,
+            output_subtokens_per_token=self.dataset_train.num_sub_tokens_output,
+            use_pointer_network=self.use_pointer_network if hasattr(self, "use_pointer_network") else False,
+            **lm_decoder,
+        )
         self.model_manager = XLNetModelManager()
         self.model_lm = XLNetTransformerDecoder(model_config)
 

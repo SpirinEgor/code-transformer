@@ -14,14 +14,27 @@ class CTCodeSummarizationOnlyASTDataset(CTCodeSummarizationDataset):
     token the second node and so on.
     """
 
-    def __init__(self, data_manager: CTPreprocessedDataManager, token_distances=None, max_distance_mask=None,
-                 num_sub_tokens=5, num_sub_tokens_output=5, use_pointer_network=False, max_num_tokens=MAX_NUM_TOKENS,
-                 mask_all_tokens=False):
-        super(CTCodeSummarizationOnlyASTDataset, self).__init__(data_manager, token_distances, max_distance_mask,
-                                                                num_sub_tokens, num_sub_tokens_output,
-                                                                use_token_types=False,
-                                                                use_pointer_network=use_pointer_network,
-                                                                max_num_tokens=None)
+    def __init__(
+        self,
+        data_manager: CTPreprocessedDataManager,
+        token_distances=None,
+        max_distance_mask=None,
+        num_sub_tokens=5,
+        num_sub_tokens_output=5,
+        use_pointer_network=False,
+        max_num_tokens=MAX_NUM_TOKENS,
+        mask_all_tokens=False,
+    ):
+        super(CTCodeSummarizationOnlyASTDataset, self).__init__(
+            data_manager,
+            token_distances,
+            max_distance_mask,
+            num_sub_tokens,
+            num_sub_tokens_output,
+            use_token_types=False,
+            use_pointer_network=use_pointer_network,
+            max_num_tokens=None,
+        )
         self.max_num_tokens_only_ast = max_num_tokens
         self.config = data_manager.load_config()
         self.mask_all_tokens = mask_all_tokens
@@ -33,18 +46,26 @@ class CTCodeSummarizationOnlyASTDataset(CTCodeSummarizationDataset):
         return [self.word_vocab.reverse_lookup(id) for id in token.string]
 
     def _filter_inverted_ids(self, sample, inverted_token_ids):
-        inverted_token_ids = [id for id in inverted_token_ids if
-                              sample.tokens[id].string[0] > len(self.config['preprocessing']['special_symbols'])]
-        inverted_token_ids = [id for id in inverted_token_ids if len(sample.tokens[id].string) == max(
-            [len(sample.tokens[id2].string) for id2 in inverted_token_ids])]
-        inverted_token_ids = [id for id in inverted_token_ids if
-                              len(self._decode_token(sample.tokens[id])[0]) == max(
-                                  [len(self._decode_token(sample.tokens[id2])[0]) for id2 in
-                                   inverted_token_ids])]
+        inverted_token_ids = [
+            id
+            for id in inverted_token_ids
+            if sample.tokens[id].string[0] > len(self.config["preprocessing"]["special_symbols"])
+        ]
+        inverted_token_ids = [
+            id
+            for id in inverted_token_ids
+            if len(sample.tokens[id].string) == max([len(sample.tokens[id2].string) for id2 in inverted_token_ids])
+        ]
+        inverted_token_ids = [
+            id
+            for id in inverted_token_ids
+            if len(self._decode_token(sample.tokens[id])[0])
+            == max([len(self._decode_token(sample.tokens[id2])[0]) for id2 in inverted_token_ids])
+        ]
         return inverted_token_ids
 
     def _get_parent_token(self, sample, id):
-        row = sample.graph_sample['adj'][id]
+        row = sample.graph_sample["adj"][id]
         parents = torch.where(row[:id] == 1)[0]
         if len(parents) == 0:
             return None
@@ -67,14 +88,16 @@ class CTCodeSummarizationOnlyASTDataset(CTCodeSummarizationDataset):
     def _get_next_sample(self):
         sample = super(CTCodeSummarizationOnlyASTDataset, self)._get_next_sample()
 
-        if self.max_num_tokens_only_ast is not None and sample.graph_sample['adj'].shape[
-            0] > self.max_num_tokens_only_ast:
+        if (
+            self.max_num_tokens_only_ast is not None
+            and sample.graph_sample["adj"].shape[0] > self.max_num_tokens_only_ast
+        ):
             return self._get_next_sample()
 
         new_sequence = []
 
-        for i, row in enumerate(sample.graph_sample['adj']):
-            n_children = row[(i + 1):].sum().item()
+        for i, row in enumerate(sample.graph_sample["adj"]):
+            n_children = row[(i + 1) :].sum().item()
             if n_children == 0 and not self.mask_all_tokens:
                 # Node is a leaf. Now, try to find the respective token
                 inverted_token_ids = self._inverse_token_mapping(sample.token_mapping, i)
@@ -106,7 +129,7 @@ class CTCodeSummarizationOnlyASTDataset(CTCodeSummarizationDataset):
 
         if self.mask_all_tokens:
             func_name = sample.func_name
-            func_name = func_name[func_name.rindex('.') + 1:] if '.' in func_name else func_name
+            func_name = func_name[func_name.rindex(".") + 1 :] if "." in func_name else func_name
             label = split_identifier_into_parts(func_name)
             encoded_label = [self.word_vocab[sub_token] for sub_token in label]
             encoded_label = pad_or_truncate(encoded_label, self.num_sub_tokens, self.word_vocab[PAD_TOKEN])
@@ -115,7 +138,8 @@ class CTCodeSummarizationOnlyASTDataset(CTCodeSummarizationDataset):
         sample.tokens = new_sequence
         sample.token_mapping = list(range(len(new_sequence)))
 
-        assert all([token.token_type == 0 for token in
-                    sample.tokens]), f"AST ablation should not contain any token type information, but got {[token.token_type for token in sample.tokens]}"
+        assert all(
+            [token.token_type == 0 for token in sample.tokens]
+        ), f"AST ablation should not contain any token type information, but got {[token.token_type for token in sample.tokens]}"
 
         return sample

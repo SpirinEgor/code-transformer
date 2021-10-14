@@ -17,24 +17,21 @@ class Tokenizer(ABC):
 
 
 class DefaultTokenizer(Tokenizer):
-
     def tokenize(self, text):
         tokens = tokenize.generate_tokens(io.StringIO(text).readline)
         return [Token.from_python_token(token) for token in tokens]
 
 
 class SemanticTokenizer(Tokenizer):
-
     def __init__(self, language):
         self.language = language
 
     def tokenize(self, text):
         result = semantic_parse(self.language, "--symbols", text)
-        return [Token.from_semantic(token) for token in result['files'][0]['symbols']]
+        return [Token.from_semantic(token) for token in result["files"][0]["symbols"]]
 
 
 class PygmentsTokenizer(Tokenizer):
-
     def __init__(self, language):
         self.language = language
         self._lexer = pygments.lexers.get_lexer_by_name(language)
@@ -74,7 +71,6 @@ class PygmentsTokenizer(Tokenizer):
 
 
 class Token:
-
     def __init__(self, string, source_span, token_type):
         self.string = string
         self.source_span = source_span
@@ -82,7 +78,7 @@ class Token:
 
     @staticmethod
     def from_semantic(token):
-        return Token(token['symbol'], RangeInterval.from_semantic(token['span']), token['kind'])
+        return Token(token["symbol"], RangeInterval.from_semantic(token["span"]), token["kind"])
 
     @staticmethod
     def from_python_token(token):
@@ -100,7 +96,6 @@ class Token:
 
 
 class CTToken(Token):
-
     def __init__(self, sub_tokens, source_span, token_type):
         super().__init__(sub_tokens, source_span, token_type)
         self.sub_tokens = self.string
@@ -170,17 +165,20 @@ def split_identifier_into_parts(identifier: str) -> List[str]:
 
 
 def method_name_to_tokens(method_name: str) -> List[str]:
-    func_name = method_name[method_name.rindex('.') + 1:] if '.' in method_name else method_name
+    func_name = method_name[method_name.rindex(".") + 1 :] if "." in method_name else method_name
     label_tokens = split_identifier_into_parts(func_name)
     label_tokens = label_tokens[:NUM_SUB_TOKENS_METHOD_NAME]
     return label_tokens
 
 
 def get_idx_no_punctuation(decoded_tokens):
-    return [i for i, token in enumerate(decoded_tokens)
-            if len(token) > 1  # tokens with 2+ parts
-            or (any(c.isalpha() for c in token[0]) and not token[0] in {'[INDENT]',
-                                                                        '[DEDENT]'})  # non-indent tokens that are words
-            or token[0] == '_'  # Sometimes function names/variables can be just an underscore
-            or token[0] == UNKNOWN_TOKEN  # unknown token could have been anything, including an identifier
-            ]
+    return [
+        i
+        for i, token in enumerate(decoded_tokens)
+        if len(token) > 1  # tokens with 2+ parts
+        or (
+            any(c.isalpha() for c in token[0]) and not token[0] in {"[INDENT]", "[DEDENT]"}
+        )  # non-indent tokens that are words
+        or token[0] == "_"  # Sometimes function names/variables can be just an underscore
+        or token[0] == UNKNOWN_TOKEN  # unknown token could have been anything, including an identifier
+    ]

@@ -10,7 +10,7 @@ import subprocess
 
 from code_transformer.utils.sacred import read_config, parse_command
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file")
     parser.add_argument("language")
@@ -18,8 +18,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     config = read_config(args.config_file)
-    config['data'] = dict(language=args.language,
-                          partition=args.partition)
+    config["data"] = dict(language=args.language, partition=args.partition)
     exe, cmd = parse_command(config)
 
     subprocess.check_call(cmd, shell=True)

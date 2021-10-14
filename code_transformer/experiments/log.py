@@ -9,7 +9,6 @@ from code_transformer.utils.log import Logger
 
 
 class MetricsLogger(ABC):
-
     @abstractmethod
     def log_scalar(self, name, value, step, timestep=None, **kwargs):
         pass
@@ -27,7 +26,6 @@ class MetricsLogger(ABC):
 
 
 class ExperimentLogger(Logger):
-
     def __init__(self, name, metrics_logger: MetricsLogger):
         super(ExperimentLogger, self).__init__(name)
         self.sub_batch_metrics = defaultdict(list)
@@ -66,7 +64,6 @@ class ExperimentLogger(Logger):
 
 
 class TensorboardLogger(MetricsLogger):
-
     def __init__(self, log_dir):
         self.writer = SummaryWriter(log_dir)
 

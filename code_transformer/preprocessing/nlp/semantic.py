@@ -22,9 +22,12 @@ logger = get_logger(__file__)
 TEMP_PIPE = "/tmp/semantic-temp-pipe"
 SEMANTIC_CMD = [SEMANTIC_EXECUTABLE]
 if shutil.which(" ".join(SEMANTIC_CMD)) is None:
-    assert shutil.which("semantic") is not None, f"Could not locate semantic executable in {SEMANTIC_CMD}! Is the path correct?"
-    logger.warn(f"Could not locate semantic executable in {SEMANTIC_CMD}! Falling back to semantic executable found "
-                f"on PATH")
+    assert (
+        shutil.which("semantic") is not None
+    ), f"Could not locate semantic executable in {SEMANTIC_CMD}! Is the path correct?"
+    logger.warn(
+        f"Could not locate semantic executable in {SEMANTIC_CMD}! Falling back to semantic executable found " f"on PATH"
+    )
     SEMANTIC_CMD = ["semantic"]
 
 language_file_extensions = {
@@ -35,43 +38,46 @@ language_file_extensions = {
     "go": "go",
     "json": "json",
     "jsx": "jsx",
-    "php": "php"
+    "php": "php",
 }
 
 
 def run_semantic(command, arg, output_type, *files, quiet=True):
-    assert shutil.which(" ".join(SEMANTIC_CMD)) is not None, f"Could not locate semantic executable in {SEMANTIC_CMD}! Is the path correct?"
+    assert (
+        shutil.which(" ".join(SEMANTIC_CMD)) is not None
+    ), f"Could not locate semantic executable in {SEMANTIC_CMD}! Is the path correct?"
 
     call = []
     call.extend(SEMANTIC_CMD)
     call.append(arg)
     call.extend([command, output_type])
     call.extend(files)
-    cabal_call = subprocess.Popen(" ".join(call), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                  text=True, shell=True)
+    cabal_call = subprocess.Popen(
+        " ".join(call), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True
+    )
     output, errors = cabal_call.communicate()
 
     cabal_call.wait()
 
     # if output of a command is valid json, already parse it
-    if output_type == '--json' or output_type == '--json-graph' or output_type == '--symbols':
+    if output_type == "--json" or output_type == "--json-graph" or output_type == "--symbols":
         output = json.loads(output, object_pairs_hook=OrderedDict)
 
     if not errors == "":
         # We can filter the erroneous files
         successful_parses = []
         successful_runs = []
-        if output_type == '--json-graph':
-            for i, file in enumerate(output['files']):
-                if 'errors' in file:
+        if output_type == "--json-graph":
+            for i, file in enumerate(output["files"]):
+                if "errors" in file:
                     if not quiet:
-                        for error in file['errors']:
+                        for error in file["errors"]:
                             logger.error(f"{file['path']}: {error['error']}")
-                elif 'Error' not in [vertex['term'] for vertex in file['vertices']]:
+                elif "Error" not in [vertex["term"] for vertex in file["vertices"]]:
                     successful_parses.append(file)
                     successful_runs.append(i)
             # we need to return the indices for successful parses for the caller
-            return {'files': successful_parses}, successful_runs
+            return {"files": successful_parses}, successful_runs
         else:
             raise Exception(errors)
 
@@ -91,14 +97,17 @@ def semantic_parse(language, arg, output_type, process_identifier, *code_snippet
     """
 
     def pipe_writer_worker(code, pipe_name):
-        with open(pipe_name, 'w') as temp_pipe:
+        with open(pipe_name, "w") as temp_pipe:
             temp_pipe.write(code)
 
     if language not in language_file_extensions:
         raise Exception(f"language `{language}` not supported by semantic")
 
-    if not isinstance(code_snippets, list) and not isinstance(code_snippets, tuple) and not isinstance(code_snippets,
-                                                                                                       set):
+    if (
+        not isinstance(code_snippets, list)
+        and not isinstance(code_snippets, tuple)
+        and not isinstance(code_snippets, set)
+    ):
         code_snippets = [code_snippets]
 
     file_extension = language_file_extensions[language]
@@ -111,7 +120,7 @@ def semantic_parse(language, arg, output_type, process_identifier, *code_snippet
         if not os.path.exists(pipe_name):
             os.mkfifo(pipe_name)
 
-        # Write to pipe asynchroneously 
+        # Write to pipe asynchroneously
         threading.Thread(target=pipe_writer_worker, args=(code, pipe_name)).start()
 
     result = run_semantic_parse(arg, output_type, pipes_wildcard, quiet=quiet)

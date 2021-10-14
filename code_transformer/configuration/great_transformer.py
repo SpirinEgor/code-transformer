@@ -2,15 +2,16 @@ from code_transformer.configuration.configuration_utils import ModelConfiguratio
 
 
 class GreatTransformerConfig(ModelConfiguration):
-    def __init__(self,
-                 num_layers: int,
-                 positional_encoding=None,
-                 embed_dim=256,
-                 num_heads=8,
-                 ff_dim=1024,
-                 dropout_rate=0.1,
-                 is_encoder_decoder=False
-                 ):
+    def __init__(
+        self,
+        num_layers: int,
+        positional_encoding=None,
+        embed_dim=256,
+        num_heads=8,
+        ff_dim=1024,
+        dropout_rate=0.1,
+        is_encoder_decoder=False,
+    ):
         super(GreatTransformerConfig, self).__init__()
 
         self.num_layers = num_layers
@@ -27,14 +28,14 @@ class GreatTransformerConfig(ModelConfiguration):
 
 
 class GreatEncoderConfig(ModelConfiguration):
-
-    def __init__(self,
-                 transformer_config: GreatTransformerConfig,
-                 vocab_size=32000,
-                 num_node_types=None,
-                 subtokens_per_token=5,
-                 num_languages=None
-                 ):
+    def __init__(
+        self,
+        transformer_config: GreatTransformerConfig,
+        vocab_size=32000,
+        num_node_types=None,
+        subtokens_per_token=5,
+        num_languages=None,
+    ):
         super(GreatEncoderConfig, self).__init__()
 
         self.transformer_config = transformer_config

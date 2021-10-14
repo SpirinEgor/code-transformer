@@ -11,8 +11,7 @@ from threading import Timer
 
 
 def get_immediate_subdirectories(a_dir):
-    return [(os.path.join(a_dir, name)) for name in os.listdir(a_dir)
-            if os.path.isdir(os.path.join(a_dir, name))]
+    return [(os.path.join(a_dir, name)) for name in os.listdir(a_dir) if os.path.isdir(os.path.join(a_dir, name))]
 
 
 TMP_DIR = ""
@@ -23,16 +22,29 @@ def ParallelExtractDir(args, dir):
 
 
 def ExtractFeaturesForDir(args, dir, prefix):
-    command = ['java', '-Xmx100g', '-XX:MaxNewSize=60g', '-cp', args.jar, 'JavaMethodExtractor.App',
-               '--max_path_length', str(args.max_path_length), '--max_path_width', str(args.max_path_width),
-               '--dir', dir, '--num_threads', str(args.num_threads)]
+    command = [
+        "java",
+        "-Xmx100g",
+        "-XX:MaxNewSize=60g",
+        "-cp",
+        args.jar,
+        "JavaMethodExtractor.App",
+        "--max_path_length",
+        str(args.max_path_length),
+        "--max_path_width",
+        str(args.max_path_width),
+        "--dir",
+        dir,
+        "--num_threads",
+        str(args.num_threads),
+    ]
 
     # print command
     # os.system(command)
     kill = lambda process: process.kill()
-    outputFileName = TMP_DIR + prefix + dir.split('/')[-1]
+    outputFileName = TMP_DIR + prefix + dir.split("/")[-1]
     failed = False
-    with open(outputFileName, 'a') as outputFile:
+    with open(outputFileName, "a") as outputFile:
         sleeper = subprocess.Popen(command, stdout=outputFile, stderr=subprocess.PIPE)
         timer = Timer(60 * 60, kill, [sleeper])
 
@@ -46,11 +58,11 @@ def ExtractFeaturesForDir(args, dir, prefix):
             if len(stderr) > 0:
                 print(stderr, file=sys.stderr)
         else:
-            print('dir: ' + str(dir) + ' was not completed in time', file=sys.stderr)
+            print("dir: " + str(dir) + " was not completed in time", file=sys.stderr)
             failed = True
             subdirs = get_immediate_subdirectories(dir)
             for subdir in subdirs:
-                ExtractFeaturesForDir(args, subdir, prefix + dir.split('/')[-1] + '_')
+                ExtractFeaturesForDir(args, subdir, prefix + dir.split("/")[-1] + "_")
     if failed:
         if os.path.exists(outputFileName):
             os.remove(outputFileName)
@@ -74,7 +86,7 @@ def ExtractFeaturesForDirsList(args, dirs):
         shutil.rmtree(TMP_DIR, ignore_errors=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-maxlen", "--max_path_length", dest="max_path_length", required=False, default=8)
     parser.add_argument("-maxwidth", "--max_path_width", dest="max_path_width", required=False, default=2)
@@ -85,8 +97,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.file is not None:
-        command = 'java -cp ' + args.jar + ' JavaMethodExtractor.App --max_path_length ' + \
-                  str(args.max_path_length) + ' --max_path_width ' + str(args.max_path_width) + ' --file ' + args.file
+        command = (
+            "java -cp "
+            + args.jar
+            + " JavaMethodExtractor.App --max_path_length "
+            + str(args.max_path_length)
+            + " --max_path_width "
+            + str(args.max_path_width)
+            + " --file "
+            + args.file
+        )
         os.system(command)
     elif args.dir is not None:
         subdirs = get_immediate_subdirectories(args.dir)

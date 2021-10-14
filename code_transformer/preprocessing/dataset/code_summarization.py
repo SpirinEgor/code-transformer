@@ -9,20 +9,30 @@ from code_transformer.preprocessing.datamanager.base import CTBatch
 from code_transformer.preprocessing.datamanager.preprocessed import CTPreprocessedDataManager
 from code_transformer.preprocessing.dataset.base import CTBaseDataset
 from code_transformer.preprocessing.nlp.text import RangeInterval
-from code_transformer.preprocessing.nlp.tokenization import CTToken, split_identifier_into_parts, \
-    get_idx_no_punctuation
+from code_transformer.preprocessing.nlp.tokenization import CTToken, split_identifier_into_parts, get_idx_no_punctuation
 from code_transformer.utils.log import get_logger
 from code_transformer.utils.vocab import decode_tokens
 
 logger = get_logger(__file__)
 
-CTCodeSummarizationSample = namedtuple("CTCodeSummarizationSample", ["tokens", "token_types",
-                                                                     "node_types", "distance_matrices",
-                                                                     "binning_vectors", "distance_names",
-                                                                     "func_name", "idx_func_tokens",
-                                                                     "label", "extended_vocabulary",
-                                                                     "extended_vocabulary_ids",
-                                                                     "pointer_pad_mask", "language"])
+CTCodeSummarizationSample = namedtuple(
+    "CTCodeSummarizationSample",
+    [
+        "tokens",
+        "token_types",
+        "node_types",
+        "distance_matrices",
+        "binning_vectors",
+        "distance_names",
+        "func_name",
+        "idx_func_tokens",
+        "label",
+        "extended_vocabulary",
+        "extended_vocabulary_ids",
+        "pointer_pad_mask",
+        "language",
+    ],
+)
 
 
 class CTCodeSummarizationDataset(CTBaseDataset):
@@ -38,13 +48,26 @@ class CTCodeSummarizationDataset(CTBaseDataset):
     token.
     """
 
-    def __init__(self, data_manager: CTPreprocessedDataManager, token_distances=None, max_distance_mask=None,
-                 num_sub_tokens=5, num_sub_tokens_output=5, use_token_types=True,
-                 use_pointer_network=False, max_num_tokens=MAX_NUM_TOKENS):
-        super(CTCodeSummarizationDataset, self).__init__(data_manager, token_distances, max_distance_mask,
-                                                         num_sub_tokens, use_token_types,
-                                                         use_pointer_network=use_pointer_network,
-                                                         max_num_tokens=max_num_tokens)
+    def __init__(
+        self,
+        data_manager: CTPreprocessedDataManager,
+        token_distances=None,
+        max_distance_mask=None,
+        num_sub_tokens=5,
+        num_sub_tokens_output=5,
+        use_token_types=True,
+        use_pointer_network=False,
+        max_num_tokens=MAX_NUM_TOKENS,
+    ):
+        super(CTCodeSummarizationDataset, self).__init__(
+            data_manager,
+            token_distances,
+            max_distance_mask,
+            num_sub_tokens,
+            use_token_types,
+            use_pointer_network=use_pointer_network,
+            max_num_tokens=max_num_tokens,
+        )
         self.num_sub_tokens_output = num_sub_tokens_output
 
     def __len__(self):
@@ -63,9 +86,9 @@ class CTCodeSummarizationDataset(CTBaseDataset):
 
         # Split function name into sub tokens
         func_name = sample.func_name
-        func_name = func_name[func_name.rindex('.') + 1:] if '.' in func_name else func_name
+        func_name = func_name[func_name.rindex(".") + 1 :] if "." in func_name else func_name
         label = split_identifier_into_parts(func_name)
-        if func_name == '':
+        if func_name == "":
             # Special case in JavaScript: anonymous functions with empty name. This can lead to data leakage, as the
             # AST will lack a node representing the method name. Hence, these samples have to be ignored for now
 
@@ -93,8 +116,10 @@ class CTCodeSummarizationDataset(CTBaseDataset):
             idx_func_tokens.append(i)
 
             while label_idx < min(self.num_sub_tokens, len(encoded_label)):
-                if v_j < len(sample.tokens[v_i].sub_tokens) and sample.tokens[v_i].sub_tokens[v_j] == encoded_label[
-                    label_idx]:
+                if (
+                    v_j < len(sample.tokens[v_i].sub_tokens)
+                    and sample.tokens[v_i].sub_tokens[v_j] == encoded_label[label_idx]
+                ):
                     at_least_one_match = True
                     v_j += 1
                     label_idx += 1
@@ -132,81 +157,103 @@ class CTCodeSummarizationDataset(CTBaseDataset):
         sample.tokens = [t for i, t in enumerate(sample.tokens) if i not in idx_func_tokens[1:]]
         sample.token_mapping = [m for i, m in enumerate(sample.token_mapping) if i not in idx_func_tokens[1:]]
         sample.tokens[idx_func_tokens[0]] = CTToken(
-            [self.word_vocab[CLS_TOKENS[-1]]],
-            RangeInterval.empty_interval(),
-            self.token_type_vocab[UNKNOWN_TOKEN])
+            [self.word_vocab[CLS_TOKENS[-1]]], RangeInterval.empty_interval(), self.token_type_vocab[UNKNOWN_TOKEN]
+        )
 
         # Replace label token with method name mask
         idx_func_tokens = [idx_func_tokens[0]]  # only one label position left now
 
         transformed_sample = self.transform_sample(sample)
 
-        assert len(label) > 0, \
-            f"Function name has to be comprised of at least 1 sub token, got {transformed_sample.func_name}"
+        assert (
+            len(label) > 0
+        ), f"Function name has to be comprised of at least 1 sub token, got {transformed_sample.func_name}"
 
-        if hasattr(self, 'word_vocab_labels'):
+        if hasattr(self, "word_vocab_labels"):
             # We have a separate vocabulary for method name tokens
-            encoded_label = pad_or_truncate(sample.encoded_func_name, self.num_sub_tokens_output,
-                                            self.word_vocab[PAD_TOKEN])
+            encoded_label = pad_or_truncate(
+                sample.encoded_func_name, self.num_sub_tokens_output, self.word_vocab[PAD_TOKEN]
+            )
 
         if self.use_pointer_network:
             # Encode label with extended vocabulary, essentially getting rid of unknown tokens in the label
-            if hasattr(self, 'word_vocab_labels'):
-                encoded_label = [(transformed_sample.extended_vocabulary[sub_token]
-                                  if sub_token in transformed_sample.extended_vocabulary else
-                                  self.unk_id)
-                                 if sub_token not in self.word_vocab_labels
-                                 else self.word_vocab_labels[sub_token]
-                                 for sub_token in label]
+            if hasattr(self, "word_vocab_labels"):
+                encoded_label = [
+                    (
+                        transformed_sample.extended_vocabulary[sub_token]
+                        if sub_token in transformed_sample.extended_vocabulary
+                        else self.unk_id
+                    )
+                    if sub_token not in self.word_vocab_labels
+                    else self.word_vocab_labels[sub_token]
+                    for sub_token in label
+                ]
             else:
-                encoded_label = [(transformed_sample.extended_vocabulary[sub_token]
-                                  if sub_token in transformed_sample.extended_vocabulary else
-                                  self.unk_id)
-                                 if sub_token not in self.word_vocab
-                                 else self.word_vocab[sub_token]
-                                 for sub_token in label]
+                encoded_label = [
+                    (
+                        transformed_sample.extended_vocabulary[sub_token]
+                        if sub_token in transformed_sample.extended_vocabulary
+                        else self.unk_id
+                    )
+                    if sub_token not in self.word_vocab
+                    else self.word_vocab[sub_token]
+                    for sub_token in label
+                ]
             encoded_label = pad_or_truncate(encoded_label, self.num_sub_tokens_output, self.word_vocab[PAD_TOKEN])
 
             # Mask Method name tokens such that they cannot be pointed to
             n_label_subtokens = (transformed_sample.pointer_pad_mask[idx_func_tokens] == True).sum().item()
-            assert n_label_subtokens == 1, f"Label should be only a masked label token, but was {transformed_sample.tokens[idx_func_tokens]}"
+            assert (
+                n_label_subtokens == 1
+            ), f"Label should be only a masked label token, but was {transformed_sample.tokens[idx_func_tokens]}"
             transformed_sample.pointer_pad_mask[idx_func_tokens] = False
 
             # Remove method name tokens from extended vocabulary IDs such that they cannot be pointed to
-            idx_func_sub_tokens = transformed_sample.pointer_pad_mask[:idx_func_tokens[0]].sum().item()
+            idx_func_sub_tokens = transformed_sample.pointer_pad_mask[: idx_func_tokens[0]].sum().item()
             del transformed_sample.extended_vocabulary_ids[idx_func_sub_tokens]
 
             # If a sub token only appears in the label, but nowhere else in the code, the model has no change to
             # predict it. Hence, it is truly unknown
-            if hasattr(self, 'word_vocab_labels'):
+            if hasattr(self, "word_vocab_labels"):
                 encoded_label_unk = [
-                    sub_token if sub_token in transformed_sample.extended_vocabulary_ids or sub_token < len(
-                        self.word_vocab_labels) else self.unk_id
-                    for sub_token in encoded_label]
+                    sub_token
+                    if sub_token in transformed_sample.extended_vocabulary_ids
+                    or sub_token < len(self.word_vocab_labels)
+                    else self.unk_id
+                    for sub_token in encoded_label
+                ]
             else:
                 encoded_label_unk = [
-                    sub_token if sub_token in transformed_sample.extended_vocabulary_ids or sub_token < len(
-                        self.word_vocab) else self.unk_id
-                    for sub_token in encoded_label]
-            assert encoded_label_unk == encoded_label, f"previously generated encoded label should note have contained any tokens that are only contained in the label, but got {encoded_label} vs {encoded_label_unk}"
+                    sub_token
+                    if sub_token in transformed_sample.extended_vocabulary_ids or sub_token < len(self.word_vocab)
+                    else self.unk_id
+                    for sub_token in encoded_label
+                ]
+            assert (
+                encoded_label_unk == encoded_label
+            ), f"previously generated encoded label should note have contained any tokens that are only contained in the label, but got {encoded_label} vs {encoded_label_unk}"
 
-            assert transformed_sample.pointer_pad_mask.sum() == len(transformed_sample.extended_vocabulary_ids), \
-                f"Number of non-masked pointer sub tokens ({transformed_sample.pointer_pad_mask.sum()}) differs " \
-                f"from number of subtokens in extended vocabulary IDs " \
+            assert transformed_sample.pointer_pad_mask.sum() == len(transformed_sample.extended_vocabulary_ids), (
+                f"Number of non-masked pointer sub tokens ({transformed_sample.pointer_pad_mask.sum()}) differs "
+                f"from number of subtokens in extended vocabulary IDs "
                 f"({len(transformed_sample.extended_vocabulary_ids)}). Extended vocabulary: {transformed_sample.extended_vocabulary_ids}, tokens: {transformed_sample.tokens}, pointer_pad_mask: {transformed_sample.pointer_pad_mask}, label: {encoded_label}"
+            )
 
-        return CTCodeSummarizationSample(tokens=transformed_sample.tokens,
-                                         token_types=transformed_sample.token_types,
-                                         node_types=transformed_sample.node_types,
-                                         distance_matrices=transformed_sample.distance_matrices,
-                                         binning_vectors=transformed_sample.binning_vectors,
-                                         distance_names=transformed_sample.distance_names,
-                                         func_name=transformed_sample.func_name,
-                                         idx_func_tokens=idx_func_tokens, label=encoded_label,
-                                         extended_vocabulary=transformed_sample.extended_vocabulary,
-                                         extended_vocabulary_ids=transformed_sample.extended_vocabulary_ids,
-                                         pointer_pad_mask=transformed_sample.pointer_pad_mask,
-                                         language=transformed_sample.language)
+        return CTCodeSummarizationSample(
+            tokens=transformed_sample.tokens,
+            token_types=transformed_sample.token_types,
+            node_types=transformed_sample.node_types,
+            distance_matrices=transformed_sample.distance_matrices,
+            binning_vectors=transformed_sample.binning_vectors,
+            distance_names=transformed_sample.distance_names,
+            func_name=transformed_sample.func_name,
+            idx_func_tokens=idx_func_tokens,
+            label=encoded_label,
+            extended_vocabulary=transformed_sample.extended_vocabulary,
+            extended_vocabulary_ids=transformed_sample.extended_vocabulary_ids,
+            pointer_pad_mask=transformed_sample.pointer_pad_mask,
+            language=transformed_sample.language,
+        )
 
     def collate_fn(self, batch: List[CTCodeSummarizationSample]):
         collated_batch = super(CTCodeSummarizationDataset, self).collate_fn(batch)
@@ -239,25 +286,42 @@ class CTCodeSummarizationDataset(CTBaseDataset):
             t_mapping = t_mapping.unsqueeze(0)
             target_mapping.append(t_mapping)
 
-        return CTBatch(tokens=collated_batch.tokens, token_types=collated_batch.token_types,
-                       node_types=collated_batch.node_types,
-                       relative_distances=collated_batch.relative_distances,
-                       distance_names=collated_batch.distance_names,
-                       sequence_lengths=collated_batch.sequence_lengths, pad_mask=collated_batch.pad_mask,
-                       labels=torch.stack(labels), perm_mask=torch.stack(attention_masks),
-                       target_mapping=torch.stack(target_mapping),
-                       target_mapping_per_token=torch.stack(target_mapping_per_token),
-                       extended_vocabulary=collated_batch.extended_vocabulary,
-                       extended_vocabulary_ids=collated_batch.extended_vocabulary_ids,
-                       pointer_pad_mask=collated_batch.pointer_pad_mask,
-                       languages=collated_batch.languages)
+        return CTBatch(
+            tokens=collated_batch.tokens,
+            token_types=collated_batch.token_types,
+            node_types=collated_batch.node_types,
+            relative_distances=collated_batch.relative_distances,
+            distance_names=collated_batch.distance_names,
+            sequence_lengths=collated_batch.sequence_lengths,
+            pad_mask=collated_batch.pad_mask,
+            labels=torch.stack(labels),
+            perm_mask=torch.stack(attention_masks),
+            target_mapping=torch.stack(target_mapping),
+            target_mapping_per_token=torch.stack(target_mapping_per_token),
+            extended_vocabulary=collated_batch.extended_vocabulary,
+            extended_vocabulary_ids=collated_batch.extended_vocabulary_ids,
+            pointer_pad_mask=collated_batch.pointer_pad_mask,
+            languages=collated_batch.languages,
+        )
 
 
-GreatBatch = namedtuple("GreatBatch", ['tokens', 'sequence_lengths', 'pad_mask', 'labels',
-                                       'target_mapping', 'target_mapping_per_token', 'edge_ixs', 'attention_mask',
-                                       "extended_vocabulary",
-                                       "extended_vocabulary_ids",
-                                       "pointer_pad_mask", 'languages'])
+GreatBatch = namedtuple(
+    "GreatBatch",
+    [
+        "tokens",
+        "sequence_lengths",
+        "pad_mask",
+        "labels",
+        "target_mapping",
+        "target_mapping_per_token",
+        "edge_ixs",
+        "attention_mask",
+        "extended_vocabulary",
+        "extended_vocabulary_ids",
+        "pointer_pad_mask",
+        "languages",
+    ],
+)
 
 
 class CTCodeSummarizationDatasetEdgeTypes(CTCodeSummarizationDataset):
@@ -265,17 +329,30 @@ class CTCodeSummarizationDatasetEdgeTypes(CTCodeSummarizationDataset):
     Processes the data for code summarization with GREAT.
     """
 
-    def __init__(self, data_manager: CTPreprocessedDataManager, token_distances=None, max_distance_mask=None,
-                 num_sub_tokens=5, num_sub_tokens_output=5, edge_distance_names=None, use_pointer_network=False,
-                 max_num_tokens=MAX_NUM_TOKENS):
+    def __init__(
+        self,
+        data_manager: CTPreprocessedDataManager,
+        token_distances=None,
+        max_distance_mask=None,
+        num_sub_tokens=5,
+        num_sub_tokens_output=5,
+        edge_distance_names=None,
+        use_pointer_network=False,
+        max_num_tokens=MAX_NUM_TOKENS,
+    ):
         if edge_distance_names is None:
             edge_distance_names = ["shortest_paths", "ancestor_sp", "sibling_sp"]
 
         self.edge_distance_names = edge_distance_names
-        super(CTCodeSummarizationDatasetEdgeTypes, self).__init__(data_manager, token_distances, max_distance_mask,
-                                                                  num_sub_tokens, num_sub_tokens_output,
-                                                                  use_pointer_network=use_pointer_network,
-                                                                  max_num_tokens=max_num_tokens)
+        super(CTCodeSummarizationDatasetEdgeTypes, self).__init__(
+            data_manager,
+            token_distances,
+            max_distance_mask,
+            num_sub_tokens,
+            num_sub_tokens_output,
+            use_pointer_network=use_pointer_network,
+            max_num_tokens=max_num_tokens,
+        )
 
     def __next__(self):
         return super(CTCodeSummarizationDatasetEdgeTypes, self).__next__()
@@ -304,24 +381,27 @@ class CTCodeSummarizationDatasetEdgeTypes(CTCodeSummarizationDataset):
                 num_edge_types += 1
             else:
                 edge_ixs = (ixs == 1).nonzero().t()
-                edge_ixs = torch.cat([torch.ones([1, edge_ixs.shape[1]], dtype=torch.long) * num_edge_types, edge_ixs],
-                                     dim=0)
+                edge_ixs = torch.cat(
+                    [torch.ones([1, edge_ixs.shape[1]], dtype=torch.long) * num_edge_types, edge_ixs], dim=0
+                )
                 edge_ixs_with_types.append(edge_ixs)
                 num_edge_types += 1
         edge_ixs_with_types = torch.cat(edge_ixs_with_types, dim=1)
 
-        return GreatBatch(tokens=collated_batch.tokens,
-                          sequence_lengths=collated_batch.sequence_lengths,
-                          pad_mask=collated_batch.pad_mask,
-                          labels=collated_batch.labels,
-                          target_mapping=collated_batch.target_mapping,
-                          target_mapping_per_token=collated_batch.target_mapping_per_token,
-                          edge_ixs=edge_ixs_with_types,
-                          attention_mask=collated_batch.perm_mask,
-                          extended_vocabulary=collated_batch.extended_vocabulary,
-                          extended_vocabulary_ids=collated_batch.extended_vocabulary_ids,
-                          pointer_pad_mask=collated_batch.pointer_pad_mask,
-                          languages=collated_batch.languages)
+        return GreatBatch(
+            tokens=collated_batch.tokens,
+            sequence_lengths=collated_batch.sequence_lengths,
+            pad_mask=collated_batch.pad_mask,
+            labels=collated_batch.labels,
+            target_mapping=collated_batch.target_mapping,
+            target_mapping_per_token=collated_batch.target_mapping_per_token,
+            edge_ixs=edge_ixs_with_types,
+            attention_mask=collated_batch.perm_mask,
+            extended_vocabulary=collated_batch.extended_vocabulary,
+            extended_vocabulary_ids=collated_batch.extended_vocabulary_ids,
+            pointer_pad_mask=collated_batch.pointer_pad_mask,
+            languages=collated_batch.languages,
+        )
 
 
 class CTCodeSummarizationDatasetNoPunctuation(CTCodeSummarizationDataset):
@@ -331,14 +411,27 @@ class CTCodeSummarizationDatasetNoPunctuation(CTCodeSummarizationDataset):
     sequence unnecessarily.
     """
 
-    def __init__(self, data_manager: CTPreprocessedDataManager, token_distances=None, max_distance_mask=None,
-                 num_sub_tokens=5, num_sub_tokens_output=5, use_token_types=True,
-                 use_pointer_network=False, max_num_tokens=MAX_NUM_TOKENS):
-        super(CTCodeSummarizationDatasetNoPunctuation, self).__init__(data_manager, token_distances, max_distance_mask,
-                                                                      num_sub_tokens, num_sub_tokens_output,
-                                                                      use_token_types,
-                                                                      use_pointer_network=use_pointer_network,
-                                                                      max_num_tokens=None)
+    def __init__(
+        self,
+        data_manager: CTPreprocessedDataManager,
+        token_distances=None,
+        max_distance_mask=None,
+        num_sub_tokens=5,
+        num_sub_tokens_output=5,
+        use_token_types=True,
+        use_pointer_network=False,
+        max_num_tokens=MAX_NUM_TOKENS,
+    ):
+        super(CTCodeSummarizationDatasetNoPunctuation, self).__init__(
+            data_manager,
+            token_distances,
+            max_distance_mask,
+            num_sub_tokens,
+            num_sub_tokens_output,
+            use_token_types,
+            use_pointer_network=use_pointer_network,
+            max_num_tokens=None,
+        )
         self.config = data_manager.load_config()
         self.max_num_tokens_no_punctuation = max_num_tokens
 
@@ -384,13 +477,22 @@ class CTCodeSummarizationDatasetNoPunctuation(CTCodeSummarizationDataset):
             pointer_pad_mask = sample.pointer_pad_mask[idx]
             extended_vocabulary_ids = [sample.extended_vocabulary_ids[i] for i in idx_sub_tokens]
 
-            assert pointer_pad_mask.sum() == len(extended_vocabulary_ids), \
-                f"Number of non-masked subtokens ({pointer_pad_mask.sum().item()}) does not match number of extended vocabulary ids ({len(extended_vocabulary_ids)})"
+            assert pointer_pad_mask.sum() == len(
+                extended_vocabulary_ids
+            ), f"Number of non-masked subtokens ({pointer_pad_mask.sum().item()}) does not match number of extended vocabulary ids ({len(extended_vocabulary_ids)})"
 
-        return CTCodeSummarizationSample(tokens_no_punctuation, token_types_no_punctuation,
-                                         node_types_no_punctuation, distance_matrices_no_punctuation,
-                                         sample.binning_vectors, sample.distance_names, sample.func_name,
-                                         idx_func_tokens_no_punctuation, sample.label,
-                                         extended_vocabulary=sample.extended_vocabulary,
-                                         extended_vocabulary_ids=extended_vocabulary_ids,
-                                         pointer_pad_mask=pointer_pad_mask, language=sample.language)
+        return CTCodeSummarizationSample(
+            tokens_no_punctuation,
+            token_types_no_punctuation,
+            node_types_no_punctuation,
+            distance_matrices_no_punctuation,
+            sample.binning_vectors,
+            sample.distance_names,
+            sample.func_name,
+            idx_func_tokens_no_punctuation,
+            sample.label,
+            extended_vocabulary=sample.extended_vocabulary,
+            extended_vocabulary_ids=extended_vocabulary_ids,
+            pointer_pad_mask=pointer_pad_mask,
+            language=sample.language,
+        )

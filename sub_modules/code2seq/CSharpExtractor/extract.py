@@ -12,23 +12,34 @@ from argparse import ArgumentParser
 from subprocess import Popen, PIPE, STDOUT, call
 
 
-
 def get_immediate_subdirectories(a_dir):
-    return [(os.path.join(a_dir, name)) for name in os.listdir(a_dir)
-            if os.path.isdir(os.path.join(a_dir, name))]
+    return [(os.path.join(a_dir, name)) for name in os.listdir(a_dir) if os.path.isdir(os.path.join(a_dir, name))]
 
 
 TMP_DIR = ""
+
 
 def ParallelExtractDir(args, dir):
     ExtractFeaturesForDir(args, dir, "")
 
 
 def ExtractFeaturesForDir(args, dir, prefix):
-    command = ['dotnet', 'run', '--project', args.csproj,
-               '--max_length', str(args.max_path_length), '--max_width', str(args.max_path_width),
-               '--path', dir, '--threads', str(args.num_threads), '--ofile_name', str(args.ofile_name)]
-
+    command = [
+        "dotnet",
+        "run",
+        "--project",
+        args.csproj,
+        "--max_length",
+        str(args.max_path_length),
+        "--max_width",
+        str(args.max_path_width),
+        "--path",
+        dir,
+        "--threads",
+        str(args.num_threads),
+        "--ofile_name",
+        str(args.ofile_name),
+    ]
 
     # print command
     # os.system(command)
@@ -46,14 +57,15 @@ def ExtractFeaturesForDir(args, dir, prefix):
         if len(stderr) > 0:
             print(sys.stderr, stderr)
     else:
-        print(sys.stderr, 'dir: ' + str(dir) + ' was not completed in time')
+        print(sys.stderr, "dir: " + str(dir) + " was not completed in time")
         failed = True
         subdirs = get_immediate_subdirectories(dir)
         for subdir in subdirs:
-            ExtractFeaturesForDir(args, subdir, prefix + dir.split('/')[-1] + '_')
+            ExtractFeaturesForDir(args, subdir, prefix + dir.split("/")[-1] + "_")
     if failed:
         if os.path.exists(str(args.ofile_name)):
             os.remove(str(args.ofile_name))
+
 
 def ExtractFeaturesForDirsList(args, dirs):
     global TMP_DIR
@@ -64,7 +76,7 @@ def ExtractFeaturesForDirsList(args, dirs):
     try:
         p = multiprocessing.Pool(4)
         p.starmap(ParallelExtractDir, zip(itertools.repeat(args), dirs))
-        #for dir in dirs:
+        # for dir in dirs:
         #    ExtractFeaturesForDir(args, dir, '')
         output_files = os.listdir(TMP_DIR)
         for f in output_files:
@@ -73,7 +85,7 @@ def ExtractFeaturesForDirsList(args, dirs):
         shutil.rmtree(TMP_DIR, ignore_errors=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("-maxlen", "--max_path_length", dest="max_path_length", required=False, default=8)
@@ -88,5 +100,5 @@ if __name__ == '__main__':
         subdirs = get_immediate_subdirectories(args.dir)
         to_extract = subdirs
         if len(subdirs) == 0:
-            to_extract = [args.dir.rstrip('/')]
+            to_extract = [args.dir.rstrip("/")]
         ExtractFeaturesForDirsList(args, to_extract)

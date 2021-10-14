@@ -3,9 +3,7 @@ from code_transformer.experiments.mixins.code_trans_transformer import CodeTrans
 from code_transformer.modeling.modelmanager import CodeTransformerLMModelManager
 
 
-class CodeTransLanguageModelingTransformerExperimentSetup(CodeTransformerDecoderMixin,
-                                                          ExperimentSetup):
-
+class CodeTransLanguageModelingTransformerExperimentSetup(CodeTransformerDecoderMixin, ExperimentSetup):
     def __init__(self):
         super(CodeTransLanguageModelingTransformerExperimentSetup, self).__init__()
         self.model_manager = CodeTransformerLMModelManager()

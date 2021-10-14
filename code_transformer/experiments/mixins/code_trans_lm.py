@@ -9,10 +9,10 @@ from code_transformer.utils.loss import LabelSmoothingLoss
 
 
 class CodeTransformerLanguageModelMixin(ExperimentSetup, ABC):
-
     @ex.capture(prefix="model")
-    def _init_model(self, transformer_lm_encoder: dict, with_cuda: bool, output_nonlinearity=None,
-                    label_smoothing=None):
+    def _init_model(
+        self, transformer_lm_encoder: dict, with_cuda: bool, output_nonlinearity=None, label_smoothing=None
+    ):
         config = self.generate_transformer_lm_encoder_config(transformer_lm_encoder)
 
         if label_smoothing is None:

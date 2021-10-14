@@ -4,8 +4,10 @@ from math import pi
 
 
 class Envelope(nn.Module):
-
-    def __init__(self, exponent, ):
+    def __init__(
+        self,
+        exponent,
+    ):
         super(Envelope, self).__init__()
         self.exponent = exponent
 
@@ -17,8 +19,9 @@ class Envelope(nn.Module):
     def forward(self, inputs):
 
         # Envelope function divided by r
-        env_val = 1 / inputs + self.a * inputs ** (self.p - 1) + self.b * inputs ** self.p + self.c * inputs ** (
-                    self.p + 1)
+        env_val = (
+            1 / inputs + self.a * inputs ** (self.p - 1) + self.b * inputs ** self.p + self.c * inputs ** (self.p + 1)
+        )
         return torch.where(inputs < 1, env_val, torch.zeros_like(inputs))
 
     def forward(self, inputs):
@@ -30,7 +33,7 @@ class Envelope(nn.Module):
             d_cutoff = torch.cos(d_scaled)
             d_cutoff *= (d_scaled <= 1).float()
         else:
-            d_cutoff = torch.tensor(1.)
+            d_cutoff = torch.tensor(1.0)
         if self.with_cos:
             out_sin = torch.sin(self.frequencies * d_scaled)
             out_cos = torch.cos(self.frequencies * d_scaled)
@@ -45,7 +48,6 @@ class Envelope(nn.Module):
 
 
 class TransformerPositionalEncoding(nn.Module):
-
     def __init__(self, d_model, pos_emb_base_pow=10000, **kwargs):
         super(TransformerPositionalEncoding, self).__init__()
         self.pos_emb_base_pow = pos_emb_base_pow
@@ -59,7 +61,7 @@ class TransformerPositionalEncoding(nn.Module):
         batch_size, num_bins = distance_bins.shape
         dists_flat = distance_bins.reshape(-1)
 
-        sinusoid_inp = torch.einsum('i,d->id', dists_flat, inv_freq)
+        sinusoid_inp = torch.einsum("i,d->id", dists_flat, inv_freq)
         pos_emb = torch.cat([torch.sin(sinusoid_inp), torch.cos(sinusoid_inp)], dim=-1)
         pos_emb = pos_emb.reshape([batch_size, num_bins, self.d_model])
 

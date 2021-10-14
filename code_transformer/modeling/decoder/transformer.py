@@ -15,7 +15,6 @@ from code_transformer.utils.data import batch_index_select
 
 
 class PositionalEncoding(nn.Module):
-
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
@@ -26,7 +25,7 @@ class PositionalEncoding(nn.Module):
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x, position):
         x = x + self.pe[position, :]
@@ -34,7 +33,6 @@ class PositionalEncoding(nn.Module):
 
 
 class TransformerLMDecoder(nn.Module):
-
     def __init__(self, config: TransformerLMDecoderConfig):
         super(TransformerLMDecoder, self).__init__()
 
@@ -64,24 +62,30 @@ class TransformerLMDecoder(nn.Module):
         self.concat_query_and_pointer = config.concat_query_and_pointer
         self.attend_cls_token = config.attend_cls_token
 
-        decoder_layer = TransformerDecoderLayer(self.d_model, config.decoder_nhead, config.decoder_dim_feedforward,
-                                                config.decoder_dropout, config.decoder_activation)
+        decoder_layer = TransformerDecoderLayer(
+            self.d_model,
+            config.decoder_nhead,
+            config.decoder_dim_feedforward,
+            config.decoder_dropout,
+            config.decoder_activation,
+        )
         self.transformer_decoder = TransformerDecoder(decoder_layer, self.n_layers)
 
         self.positional_encoding = PositionalEncoding(self.d_model, config.decoder_dropout)
 
         if self.use_pointer_network:
-            self.pointer_network = PointerNetwork(self.d_model, self.lm_encoder.subtokens_per_token,
-                                                  config.pointer_attention_type,
-                                                  n_heads)
+            self.pointer_network = PointerNetwork(
+                self.d_model, self.lm_encoder.subtokens_per_token, config.pointer_attention_type, n_heads
+            )
 
             if self.concat_query_and_pointer:
                 self.pointer_query_linear = nn.Linear(self.d_model * 2, self.d_model)
-                self.pointer_query_nonlinearity = _get_activation_fn('tanh')
+                self.pointer_query_nonlinearity = _get_activation_fn("tanh")
 
             if self.use_pointer_query_self_attention:
-                self.pointer_query_self_attention = MultiheadAttention(self.d_model, n_heads,
-                                                                       dropout=config.decoder_dropout)
+                self.pointer_query_self_attention = MultiheadAttention(
+                    self.d_model, n_heads, dropout=config.decoder_dropout
+                )
                 self.pointer_query_norm = LayerNorm(self.d_model)
 
         if self.use_separate_vocab:
@@ -96,11 +100,9 @@ class TransformerLMDecoder(nn.Module):
             if p.dim() > 1:
                 xavier_uniform_(p)
 
-    def forward(self,
-                labels=None,
-                extended_vocabulary_ids=None,
-                pointer_pad_mask: Optional[torch.Tensor] = None,
-                **model_input) -> CodeTransformerOutput:
+    def forward(
+        self, labels=None, extended_vocabulary_ids=None, pointer_pad_mask: Optional[torch.Tensor] = None, **model_input
+    ) -> CodeTransformerOutput:
         """
         :param labels:
         :param extended_vocabulary_ids: torch.Tensor [B, subtoken_seq_len]
@@ -135,10 +137,9 @@ class TransformerLMDecoder(nn.Module):
         query_stream_emb = transformer_output.all_emb[-1][1]  # [n_predict, B, D]
         n_predict = transformer_output[0].shape[1]
         if n_predict > 1:
-            content_stream_emb = content_stream_emb \
-                .unsqueeze(1) \
-                .repeat((1, n_predict, 1, 1)) \
-                .reshape(B * n_predict, S, D)
+            content_stream_emb = (
+                content_stream_emb.unsqueeze(1).repeat((1, n_predict, 1, 1)).reshape(B * n_predict, S, D)
+            )
             labels = labels.reshape(B * n_predict, 1, -1)
             B = B * n_predict
 
@@ -153,21 +154,20 @@ class TransformerLMDecoder(nn.Module):
         if self.use_pointer_network:
             pointer_input_subtokens = content_stream_emb
             if n_predict > 1:
-                pointer_pad_mask = pointer_pad_mask.unsqueeze(1) \
-                    .repeat(1, n_predict, 1, 1) \
-                    .reshape(B, S, -1)
-                extended_vocabulary_ids = extended_vocabulary_ids.unsqueeze(1) \
-                    .repeat(1, n_predict, 1) \
-                    .reshape(B, -1)
+                pointer_pad_mask = pointer_pad_mask.unsqueeze(1).repeat(1, n_predict, 1, 1).reshape(B, S, -1)
+                extended_vocabulary_ids = extended_vocabulary_ids.unsqueeze(1).repeat(1, n_predict, 1).reshape(B, -1)
 
-            self.pointer_network.init_batch(pointer_input_subtokens, pointer_pad_mask, extended_vocabulary_ids,
-                                            self.vocab_size)
+            self.pointer_network.init_batch(
+                pointer_input_subtokens, pointer_pad_mask, extended_vocabulary_ids, self.vocab_size
+            )
 
-            logits = torch.zeros((self.output_subtokens_per_token, B, self.pointer_network.len_extended_vocab),
-                                 device=device)
+            logits = torch.zeros(
+                (self.output_subtokens_per_token, B, self.pointer_network.len_extended_vocab), device=device
+            )
             pointer_gates = torch.zeros((self.output_subtokens_per_token, B))
             pointer_attentions = torch.zeros(
-                (self.output_subtokens_per_token, B, self.pointer_network.len_extended_vocab))
+                (self.output_subtokens_per_token, B, self.pointer_network.len_extended_vocab)
+            )
             pointer_attention_distributions = torch.zeros(
                 (self.output_subtokens_per_token, B, extended_vocabulary_ids.shape[1])
             )
@@ -176,17 +176,18 @@ class TransformerLMDecoder(nn.Module):
 
         # pad_mask has 1s for all regular (non-pad) tokens
         # attention_mask has 1s for all illegal tokens that may not be attended (such as function name and CLS token)
-        pad_mask = model_input['pad_mask'].bool()
+        pad_mask = model_input["pad_mask"].bool()
         if n_predict > 1:
             pad_mask = pad_mask.unsqueeze(1).repeat(1, n_predict, 1).reshape(B, -1)
-            attention_mask = model_input['attention_mask']
-            label_idx = torch.stack([torch.where(tm == 1)[0] for tm in model_input['target_mapping'].sum(dim=1)])
+            attention_mask = model_input["attention_mask"]
+            label_idx = torch.stack([torch.where(tm == 1)[0] for tm in model_input["target_mapping"].sum(dim=1)])
             attention_mask = batch_index_select(attention_mask, dim=1, index=label_idx)
             attention_mask = attention_mask.reshape(B, -1)
         else:
-            attention_mask = model_input['attention_mask']
+            attention_mask = model_input["attention_mask"]
             attention_mask = torch.stack(
-                [attention_mask[i][torch.where(model_input['pad_mask'][i] == 0)[0]].sum(dim=0) for i in range(B)])
+                [attention_mask[i][torch.where(model_input["pad_mask"][i] == 0)[0]].sum(dim=0) for i in range(B)]
+            )
         attention_mask = attention_mask > 0
         if self.attend_cls_token:
             attention_mask[:, 0] = False  # CLS token may be attended
@@ -204,18 +205,20 @@ class TransformerLMDecoder(nn.Module):
                     pointer_query = decoder_input.select(1, -1)
 
                 if self.use_pointer_query_self_attention:
-                    pointer_query = \
-                        self.pointer_query_self_attention(pointer_query.unsqueeze(0), decoder_input.transpose(0, 1),
-                                                          decoder_input.transpose(0, 1))[0]
+                    pointer_query = self.pointer_query_self_attention(
+                        pointer_query.unsqueeze(0), decoder_input.transpose(0, 1), decoder_input.transpose(0, 1)
+                    )[0]
                     pointer_query = self.pointer_query_norm(pointer_query)
 
                     pointer_query = pointer_query.squeeze(0)
 
                 self.pointer_network.calculate_pointer_attention(pointer_query)
 
-            decoder_output = self.transformer_decoder.forward(decoder_input.transpose(0, 1),
-                                                              content_stream_emb.transpose(0, 1),
-                                                              memory_key_padding_mask=pad_mask | attention_mask)
+            decoder_output = self.transformer_decoder.forward(
+                decoder_input.transpose(0, 1),
+                content_stream_emb.transpose(0, 1),
+                memory_key_padding_mask=pad_mask | attention_mask,
+            )
             if self.output_nonlinearity is not None:
                 decoder_output = self.output_nonlinearity(decoder_output)
 
@@ -249,11 +252,13 @@ class TransformerLMDecoder(nn.Module):
 
         logits = logits.transpose(0, 1).unsqueeze(1)  # B x 1 x output_subtokens x V
         logits = logits.reshape(B // n_predict, n_predict, logits.shape[2], logits.shape[3])
-        outputs = CodeTransformerOutput(loss=loss,
-                                        logits=logits,
-                                        attentions=transformer_output.attentions,
-                                        pointer_gates=pointer_gates,
-                                        pointer_attentions=pointer_attentions,
-                                        pointer_attention_distributions=pointer_attention_distributions)
+        outputs = CodeTransformerOutput(
+            loss=loss,
+            logits=logits,
+            attentions=transformer_output.attentions,
+            pointer_gates=pointer_gates,
+            pointer_attentions=pointer_attentions,
+            pointer_attention_distributions=pointer_attention_distributions,
+        )
 
         return outputs

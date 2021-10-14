@@ -2,20 +2,21 @@ from code_transformer.configuration.configuration_utils import ModelConfiguratio
 
 
 class CodeTransformerLayerConfig(ModelConfiguration):
-    def __init__(self,
-                 d_model=256,
-                 nhead=8,
-                 dim_feedforward=1024,
-                 activation="gelu",
-                 dropout=0.1,
-
-                 num_relative_distances=1,
-                 use_token_distances=False,
-                 use_edge_embeddings=False,
-                 use_content_content=True,
-                 use_content_pos=True,
-                 use_pos_content=True,
-                 use_pos_pos=True, ):
+    def __init__(
+        self,
+        d_model=256,
+        nhead=8,
+        dim_feedforward=1024,
+        activation="gelu",
+        dropout=0.1,
+        num_relative_distances=1,
+        use_token_distances=False,
+        use_edge_embeddings=False,
+        use_content_content=True,
+        use_content_pos=True,
+        use_pos_content=True,
+        use_pos_pos=True,
+    ):
         super(CodeTransformerLayerConfig, self).__init__()
         self.d_model = d_model
         self.nhead = nhead
@@ -32,12 +33,7 @@ class CodeTransformerLayerConfig(ModelConfiguration):
 
 
 class CodeTransformerCoreConfig(ModelConfiguration):
-    def __init__(self,
-                 encoder_layer: CodeTransformerLayerConfig,
-                 num_layers: int,
-                 positional_encoding=None,
-                 norm=None
-                 ):
+    def __init__(self, encoder_layer: CodeTransformerLayerConfig, num_layers: int, positional_encoding=None, norm=None):
         super(CodeTransformerCoreConfig, self).__init__()
         if isinstance(encoder_layer, CodeTransformerLayerConfig):
             self.encoder_layer = CodeTransformerLayerConfig(**encoder_layer)

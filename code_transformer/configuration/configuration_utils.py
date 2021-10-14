@@ -2,6 +2,7 @@ class DotDict(dict):
     """
     Simple extension of Python's dict to support dot access.
     """
+
     def __init__(self, *args, **kwargs):
         super(DotDict, self).__init__(*args, **kwargs)
         for arg in args:
@@ -36,4 +37,3 @@ class DotDict(dict):
 
 class ModelConfiguration(DotDict):
     pass
-

@@ -34,8 +34,8 @@ def top1_accuracy(logits: torch.Tensor, labels: torch.Tensor, unk_id=None, pad_i
         all_correct = correct.prod(-1)
     else:
         predictions = logits if predictions_provided else get_best_non_unk_predictions(logits, unk_id)
-        idx_unk_labels = (labels == unk_id)
-        correct = (predictions == labels)
+        idx_unk_labels = labels == unk_id
+        correct = predictions == labels
         correct[idx_unk_labels] = True
         all_correct = correct.prod(-1)
         idx_label_all_unk = ((labels == unk_id) | (labels == pad_id)).all(-1) & ~(labels == pad_id).all(-1)
@@ -62,12 +62,12 @@ def topk_accuracy(k, logits: torch.Tensor, labels: torch.Tensor, unk_id=None, pa
     assert unk_id is None or pad_id is not None, "When unk_id is given, pad_id must be given as well"
     topk_pred = logits.topk(k, -1)
     # Accept if any of the top k predictions is the label
-    topk_correct = (topk_pred.indices == labels.unsqueeze(-1).expand((-1, -1, -1, k)))
+    topk_correct = topk_pred.indices == labels.unsqueeze(-1).expand((-1, -1, -1, k))
     topk_correct = topk_correct.any(-1)
     if unk_id is None:
         topk_correct = topk_correct.all(-1)  # Only accept if for all sub tokens a top k prediction was correct
     if unk_id is not None:
-        idx_unk_labels = (labels == unk_id)
+        idx_unk_labels = labels == unk_id
         topk_correct[idx_unk_labels] = True
         topk_correct = topk_correct.all(-1)  # Only accept if for all sub tokens a top k prediction was correct
         idx_label_all_unk = ((labels == unk_id) | (labels == pad_id)).all(-1) & ~(labels == pad_id).all(-1)
@@ -77,8 +77,9 @@ def topk_accuracy(k, logits: torch.Tensor, labels: torch.Tensor, unk_id=None, pa
     return topk_correct.float().mean().item()
 
 
-def non_trivial_words_accuracy(logits: torch.Tensor, labels: torch.Tensor, pad_id, unk_id=None,
-                               predictions_provided=False):
+def non_trivial_words_accuracy(
+    logits: torch.Tensor, labels: torch.Tensor, pad_id, unk_id=None, predictions_provided=False
+):
     """
     Averaged per sample:
         1, if the prediction with highest confidence was the correct one for all sub tokens and the label was non
@@ -96,7 +97,7 @@ def non_trivial_words_accuracy(logits: torch.Tensor, labels: torch.Tensor, pad_i
     non_pad_per_label = pad_mask.sum(-1)
 
     idx_non_trivial_labels = non_pad_per_label >= 2
-    accurate_predictions = (predictions == labels)
+    accurate_predictions = predictions == labels
     if unk_id is not None:
         idx_label_all_unk = ((labels == unk_id) | (labels == pad_id)).all(-1) & ~(labels == pad_id).all(-1)
         idx_non_trivial_labels &= ~idx_label_all_unk
@@ -110,8 +111,9 @@ def non_trivial_words_accuracy(logits: torch.Tensor, labels: torch.Tensor, pad_i
     return accurate_predictions.float().mean().item()
 
 
-def precision(logits: torch.Tensor, labels: torch.Tensor, pad_id=None, unk_id=None, predictions_provided=False,
-              average=True):
+def precision(
+    logits: torch.Tensor, labels: torch.Tensor, pad_id=None, unk_id=None, predictions_provided=False, average=True
+):
     """
     Calculates for every token how many of the predicted sub tokens were correct (are in the corresponding label)
     and averages that over all samples.
@@ -155,7 +157,7 @@ def precision(logits: torch.Tensor, labels: torch.Tensor, pad_id=None, unk_id=No
         idx_prediction_all_pad = (~pad_mask).all(-1)
 
         # If only [PAD] was predicted, but the label was not all [PAD] this prediction has 0 precision
-        precision_per_token[idx_prediction_all_pad & ~ idx_label_all_pad] = 0
+        precision_per_token[idx_prediction_all_pad & ~idx_label_all_pad] = 0
 
         # If label and prediction were all [PAD] then precision is 1
         precision_per_token[idx_prediction_all_pad & idx_label_all_pad] = 1
@@ -176,8 +178,9 @@ def precision(logits: torch.Tensor, labels: torch.Tensor, pad_id=None, unk_id=No
         return precision_per_token
 
 
-def recall(logits: torch.Tensor, labels: torch.Tensor, pad_id=None, unk_id=None, predictions_provided=False,
-           average=True):
+def recall(
+    logits: torch.Tensor, labels: torch.Tensor, pad_id=None, unk_id=None, predictions_provided=False, average=True
+):
     if predictions_provided:
         num_sub_tokens = logits.shape[1]
         predictions = logits
@@ -201,8 +204,9 @@ def recall(logits: torch.Tensor, labels: torch.Tensor, pad_id=None, unk_id=None,
         pad_mask = (labels == pad_id).logical_not()
         if unk_id is not None:
             # Do not add up to sub token count if label sub token was <unk>
-            recall_per_token = torch.einsum("bpt,bpt->bp", recall_predictions.int(),
-                                            (pad_mask & idx_non_unk_labels).int())
+            recall_per_token = torch.einsum(
+                "bpt,bpt->bp", recall_predictions.int(), (pad_mask & idx_non_unk_labels).int()
+            )
             non_pad_per_label = (pad_mask & idx_non_unk_labels).sum(-1)
 
         else:
@@ -235,8 +239,10 @@ def f1_score(logits, labels, pad_id=None, unk_id=None, predictions_provided=Fals
         predictions = logits
     else:
         predictions = logits.argmax(-1) if unk_id is None else get_best_non_unk_predictions(logits, unk_id)
-    scores = [get_micro_precision_recall_f1(pred, label, unk_id=unk_id, pad_id=pad_id, predictions_provided=True)
-              for pred, label in zip(predictions, labels)]
+    scores = [
+        get_micro_precision_recall_f1(pred, label, unk_id=unk_id, pad_id=pad_id, predictions_provided=True)
+        for pred, label in zip(predictions, labels)
+    ]
 
     precisions, recalls, f1s = zip(*scores)
     if output_precision_recall:
@@ -311,15 +317,19 @@ def calculate_results(true_positive, false_positive, false_negative):
     return precision, recall, f1
 
 
-def get_micro_precision_recall_f1(logits: torch.Tensor, labels: torch.Tensor, pad_id=None, unk_id=None,
-                                  predictions_provided=False):
+def get_micro_precision_recall_f1(
+    logits: torch.Tensor, labels: torch.Tensor, pad_id=None, unk_id=None, predictions_provided=False
+):
     if predictions_provided:
         predictions = logits
     else:
         predictions = logits.argmax(-1) if unk_id is None else get_best_non_unk_predictions(logits, unk_id)
     tp, fp, fn = calculate_metrics(
         predictions.squeeze() if isinstance(predictions, torch.Tensor) else predictions,
-        labels.squeeze() if isinstance(labels, torch.Tensor) else labels, pad_id=pad_id, unk_id=unk_id)
+        labels.squeeze() if isinstance(labels, torch.Tensor) else labels,
+        pad_id=pad_id,
+        unk_id=unk_id,
+    )
     return calculate_results(tp, fp, fn)
 
 
@@ -352,11 +362,14 @@ def compute_rouge(logits: Union[torch.Tensor, list], labels: torch.Tensor, pad_i
         else:
             predictions = [sample_logits.argmax(-1).squeeze() for sample_logits in logits]
 
-    predictions = [" ".join([str(p.item()) for p in prediction if pad_id is None or p.item() != pad_id]).lower()
-                   for prediction in predictions]
+    predictions = [
+        " ".join([str(p.item()) for p in prediction if pad_id is None or p.item() != pad_id]).lower()
+        for prediction in predictions
+    ]
     predictions = [prediction if prediction else "EMPTY" for prediction in predictions]
-    targets = [" ".join([str(t.item()) for t in target if pad_id is None or t.item() != pad_id]).lower()
-               for target in labels]
+    targets = [
+        " ".join([str(t.item()) for t in target if pad_id is None or t.item() != pad_id]).lower() for target in labels
+    ]
     rouge = Rouge()
     scores = rouge.get_scores(hyps=predictions, refs=targets, avg=True)
     return scores
@@ -364,9 +377,9 @@ def compute_rouge(logits: Union[torch.Tensor, list], labels: torch.Tensor, pad_i
 
 def rouge_2(logits: Union[torch.Tensor, list], labels: torch.Tensor, pad_id=None, predictions_provided=False):
     scores = compute_rouge(logits, labels, pad_id=pad_id, predictions_provided=predictions_provided)
-    return scores['rouge-2']['f']
+    return scores["rouge-2"]["f"]
 
 
 def rouge_l(logits: Union[torch.Tensor, list], labels: torch.Tensor, pad_id=None, predictions_provided=False):
     scores = compute_rouge(logits, labels, pad_id=pad_id, predictions_provided=predictions_provided)
-    return scores['rouge-l']['f']
+    return scores["rouge-l"]["f"]

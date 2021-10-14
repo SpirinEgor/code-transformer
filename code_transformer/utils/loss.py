@@ -6,6 +6,7 @@ class LabelSmoothingLoss(nn.Module):
     """
     Adapted from https://github.com/pytorch/pytorch/issues/7455#issuecomment-513062631
     """
+
     def __init__(self, smoothing=0.0, dim=-1):
         super(LabelSmoothingLoss, self).__init__()
         self.confidence = 1.0 - smoothing

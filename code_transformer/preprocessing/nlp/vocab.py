@@ -9,14 +9,13 @@ from code_transformer.preprocessing.nlp.tokenization import method_name_to_token
 
 
 class WordCounter:
-
     def __init__(self):
         self.words = dict()
 
     def update(self, word):
         # Do not strip new lines \n from word
         word = str(word).strip(" \t\r").lower()
-        assert not word == '', f"WordCounter received an empty string in word `{word}` which is not desired"
+        assert not word == "", f"WordCounter received an empty string in word `{word}` which is not desired"
         if word not in self.words:
             self.words[word] = 1
         else:
@@ -26,7 +25,8 @@ class WordCounter:
         if special_symbols is None:
             special_symbols = dict()
         assert limit_most_common is None or limit_most_common >= len(
-            special_symbols), "Cannot calculate most_common for less than the size of special_symbols"
+            special_symbols
+        ), "Cannot calculate most_common for less than the size of special_symbols"
 
         # Need to spare one extra space for the UNKNOWN_WORD token
         if UNKNOWN_TOKEN not in special_symbols and limit_most_common:
@@ -34,20 +34,22 @@ class WordCounter:
 
         # Count word occurrences ignoring special symbols as they will be added to the vocabulary anyways
         # Keep in mind that special symbols can be uppercase while all other vocabulary words are always lowercase
-        word_counts = {word: count for word, count in self.words.items() if word not in {symbol.lower() for symbol in
-                                                                                         special_symbols}}
+        word_counts = {
+            word: count
+            for word, count in self.words.items()
+            if word not in {symbol.lower() for symbol in special_symbols}
+        }
         sorted_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
         if min_frequency is not None:
             sorted_words = filter(lambda x: x[1] >= min_frequency, sorted_words)
         most_common_words = [sorted_word[0] for sorted_word in sorted_words]
         if limit_most_common is not None:
-            most_common_words = most_common_words[:limit_most_common - len(special_symbols)]
+            most_common_words = most_common_words[: limit_most_common - len(special_symbols)]
 
         return Vocabulary(most_common_words, special_symbols)
 
 
 class Vocabulary:
-
     def __init__(self, words, special_symbols: dict = None):
         """
         :param special_symbols: the provided dictionary will form the basis of the vocabulary.
@@ -118,9 +120,10 @@ class VocabularyBuilder:
 
     def __call__(self, sample: CTStage1Sample):
         for token in sample.tokens:
-            assert all([isinstance(st, str) for st in
-                        token.string]), f"Some sub tokens ({token.string}) do not have string values. Has this sample " \
-                                        f"already been vocabularized?"
+            assert all([isinstance(st, str) for st in token.string]), (
+                f"Some sub tokens ({token.string}) do not have string values. Has this sample "
+                f"already been vocabularized?"
+            )
             try:
                 for st in token.sub_tokens:
                     self.word_counter.update(st)
@@ -144,10 +147,13 @@ class CodeSummarizationVocabularyBuilder(VocabularyBuilder):
     towards the subset of words that usually appear in method names.
     """
 
-    def __init__(self, word_counter: WordCounter,
-                 token_type_counter: WordCounter,
-                 node_type_counter: WordCounter,
-                 word_counter_labels: WordCounter):
+    def __init__(
+        self,
+        word_counter: WordCounter,
+        token_type_counter: WordCounter,
+        node_type_counter: WordCounter,
+        word_counter_labels: WordCounter,
+    ):
         super().__init__(word_counter, token_type_counter, node_type_counter)
         self.word_counter_labels = word_counter_labels
 
@@ -155,7 +161,7 @@ class CodeSummarizationVocabularyBuilder(VocabularyBuilder):
         super().__call__(sample)
         label_tokens = method_name_to_tokens(sample.func_name)
         for label_token in label_tokens:
-            if str(label_token).strip(" \t\r").lower() != '':
+            if str(label_token).strip(" \t\r").lower() != "":
                 self.word_counter_labels.update(label_token)
 
 
@@ -173,9 +179,10 @@ class VocabularyTransformer:
 
     def __call__(self, sample: CTStage1Sample):
         for token in sample.tokens:
-            assert all([isinstance(st, str) for st in
-                        token.sub_tokens]), f"Some sub tokens ({token.sub_tokens}) do not have string values. Has " \
-                                            f"this sample already been vocabularized?"
+            assert all([isinstance(st, str) for st in token.sub_tokens]), (
+                f"Some sub tokens ({token.sub_tokens}) do not have string values. Has "
+                f"this sample already been vocabularized?"
+            )
             for i, st in enumerate(token.sub_tokens):
                 token.sub_tokens[i] = self.word_vocab[st]
                 token.original_sub_tokens[i] = st
@@ -205,6 +212,7 @@ class CodeSummarizationVocabularyTransformer(VocabularyTransformer):
 
 def batch_decode(vocabulary: Vocabulary, token_ids):
     import numpy as np
+
     shape_before = token_ids.shape
     decoded = []
     tensor_resh = token_ids.reshape([-1, token_ids.shape[-1]])

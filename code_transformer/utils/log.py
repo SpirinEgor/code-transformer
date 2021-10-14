@@ -11,12 +11,11 @@ def get_logger(file):
 
 
 class Logger(logging.Logger):
-
     def __init__(self, name):
         super(Logger, self).__init__(name, logging.INFO)
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
         handler.flush = sys.stdout.flush
         super(Logger, self).addHandler(handler)

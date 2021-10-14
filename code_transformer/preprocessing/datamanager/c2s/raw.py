@@ -13,7 +13,6 @@ from code_transformer.preprocessing.datamanager.csn.raw import CSNRawSample
 
 
 class C2SRawDataLoader(RawDataLoader):
-
     def __init__(self, data_location):
         self.data_location = data_location
 
@@ -26,10 +25,10 @@ class C2SRawDataLoader(RawDataLoader):
             files = glob.glob(f"{self.data_location}/{dataset}/{partition}/dataset-*.json")
             self.samples = []
             for file in files:
-                with open(file, 'r') as f:
+                with open(file, "r") as f:
                     self.samples.extend(json.load(f))
         else:
-            with open(f"{self.data_location}/{dataset}/{partition}.json", 'r') as f:
+            with open(f"{self.data_location}/{dataset}/{partition}.json", "r") as f:
                 self.samples = json.load(f)
 
     def read(self, batch_size=1, shuffle=False):
@@ -38,8 +37,10 @@ class C2SRawDataLoader(RawDataLoader):
         else:
             lines = self.samples
 
-        reader = map(lambda sample: CSNRawSample(sample['name'], sample['doc'] if 'doc' in sample else None,
-                                                 sample['code']), lines)
+        reader = map(
+            lambda sample: CSNRawSample(sample["name"], sample["doc"] if "doc" in sample else None, sample["code"]),
+            lines,
+        )
 
         if batch_size > 1:
             return DataManager.to_batches(reader, batch_size)

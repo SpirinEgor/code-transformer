@@ -26,10 +26,10 @@ class CSNRawDataLoader(RawDataLoader):
 
     def load(self, language, partition, seq):
         with gzip.GzipFile(
-                f"{self.data_location}/{language}/final/jsonl/{partition}/{language}_{partition}_{seq}.jsonl.gz",
-                'r') as fin:
+            f"{self.data_location}/{language}/final/jsonl/{partition}/{language}_{partition}_{seq}.jsonl.gz", "r"
+        ) as fin:
             json_bytes = fin.read()
-        json_str = json_bytes.decode('utf-8')
+        json_str = json_bytes.decode("utf-8")
         self.lines.extend(json_str.split("\n"))
 
     def load_all_for(self, language, partition=None):
@@ -56,7 +56,7 @@ class CSNRawDataLoader(RawDataLoader):
         else:
             lines = self.lines
         reader = jsonlines.Reader(lines)
-        reader = map(lambda line: CSNRawSample(line['func_name'], line['docstring'], line['code']), reader)
+        reader = map(lambda line: CSNRawSample(line["func_name"], line["docstring"], line["code"]), reader)
 
         if batch_size > 1:
             return DataManager.to_batches(reader, batch_size)

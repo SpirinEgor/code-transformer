@@ -9,15 +9,17 @@ import numpy as np
 import torch
 
 from code_transformer.modeling.constants import BIN_PADDING
-from code_transformer.preprocessing.graph.alg import next_sibling_shortest_paths, all_pairs_shortest_paths, \
-    tree_shortest_paths
+from code_transformer.preprocessing.graph.alg import (
+    next_sibling_shortest_paths,
+    all_pairs_shortest_paths,
+    tree_shortest_paths,
+)
 from code_transformer.preprocessing.graph.binning import calculate_bins, hist_by_area, EqualBinning
 
 UNREACHABLE = 10000
 
 
 class GraphDistanceMetric(ABC):
-
     def __init__(self, name):
         self.name = name
 
@@ -34,7 +36,6 @@ class GraphDistanceMetric(ABC):
 
 
 class AbstractShortestPaths(GraphDistanceMetric, ABC):
-
     def __init__(self, name, forward=True, backward=True, negative_reverse_dists=True, threshold=None):
         """
         :param threshold: any shortest path above this threshold will be regarded as UNREACHABLE (i.e., infinite distance)
@@ -54,8 +55,7 @@ class AbstractShortestPaths(GraphDistanceMetric, ABC):
             pw_dists = torch.triu(pw_dists, diagonal=1)
             pw_dists = pw_dists - pw_dists.t()
             if not self.negative_reverse_dists:
-                pw_dists *= -(pw_dists == -UNREACHABLE).long() \
-                            + (pw_dists != -UNREACHABLE).long()
+                pw_dists *= -(pw_dists == -UNREACHABLE).long() + (pw_dists != -UNREACHABLE).long()
         elif self.backward:
             pw_dists = pw_dists.t()
         if self.threshold:
@@ -70,8 +70,7 @@ class AncestorShortestPaths(AbstractShortestPaths):
         super(AncestorShortestPaths, self).__init__(self.name, forward, backward, negative_reverse_dists, threshold)
 
     def __call__(self, adjacency_matrix: torch.tensor) -> torch.tensor:
-        G = nx.from_numpy_array(torch.triu(adjacency_matrix).numpy(),
-                                create_using=nx.DiGraph)
+        G = nx.from_numpy_array(torch.triu(adjacency_matrix).numpy(), create_using=nx.DiGraph)
 
         sp_length = all_pairs_shortest_paths(G=G)
         pw_dists = self.calculate_pw_dists(adjacency_matrix, sp_length)
@@ -151,8 +150,8 @@ class PersonalizedPageRank(GraphDistanceMetric):
 # Distance Binning
 # =============================================================================
 
-class DistanceBinning:
 
+class DistanceBinning:
     def __init__(self, n_bins, n_fixed=9, trans_func=EqualBinning()):
         self.n_bins = n_bins
         self.n_fixed = n_fixed
@@ -165,17 +164,16 @@ class DistanceBinning:
             if UNREACHABLE in dist_values:
                 # We fix UNREACHABLE to be the bin with index 0
                 possible_distances = torch.tensor(
-                    hist_by_area(dist_values[dist_values < UNREACHABLE], self.n_bins - 2), dtype=torch.float32)
-                possible_distances = torch.cat(
-                    [torch.tensor([UNREACHABLE], dtype=torch.float32), possible_distances])
+                    hist_by_area(dist_values[dist_values < UNREACHABLE], self.n_bins - 2), dtype=torch.float32
+                )
+                possible_distances = torch.cat([torch.tensor([UNREACHABLE], dtype=torch.float32), possible_distances])
                 dist_values = torch.tensor(dist_values, dtype=torch.float32)
                 indices = (dist_values[:, None] > possible_distances[None, :]).sum(-1).reshape(distance_matrix.shape)
                 # Shift all indices by 1, as UNREACHABLE will be bin 0
                 indices = (indices + 1) % self.n_bins
             else:
                 # We assume there is already many 0 values in the distance matrix, that will be in bin 0
-                possible_distances = torch.tensor(hist_by_area(dist_values, self.n_bins - 1),
-                                                  dtype=torch.float32)
+                possible_distances = torch.tensor(hist_by_area(dist_values, self.n_bins - 1), dtype=torch.float32)
                 dist_values = torch.tensor(dist_values, dtype=torch.float32)
                 # It is very important that both dist_values and possible_distances are float32
                 # Otherwise, it can happen that a > b if a = b, just because a.dtype = float64, b.dtype=32
@@ -208,8 +206,9 @@ class DistanceBinning:
                     # Calculate bins where the area of each bin is governed by trans_func.
                     # When using exponential binning, this means that bin area will grow exponentially in distance
                     # to the bin containing the value 0
-                    possible_distances = calculate_bins(values, num_unique_values - 1, self.n_fixed, hist_by_area,
-                                                        self.trans_func)
+                    possible_distances = calculate_bins(
+                        values, num_unique_values - 1, self.n_fixed, hist_by_area, self.trans_func
+                    )
 
             if isinstance(possible_distances, torch.Tensor):
                 possible_distances = possible_distances.type(torch.float32)
@@ -233,15 +232,19 @@ class DistanceBinning:
             possible_distances = torch.cat([torch.tensor([UNREACHABLE], dtype=torch.float32), possible_distances])
 
             if num_unique_values < self.n_bins:
-                bin_padding_tensor = torch.tensor([BIN_PADDING for i in range(self.n_bins - num_unique_values)],
-                                                  dtype=torch.float32)
+                bin_padding_tensor = torch.tensor(
+                    [BIN_PADDING for i in range(self.n_bins - num_unique_values)], dtype=torch.float32
+                )
                 possible_distances = torch.cat([possible_distances, bin_padding_tensor])
 
         else:
             raise NotImplementedError(f"Binning for tensors of type {distance_matrix.dtype} is not impolemented")
 
-        assert 0 <= indices.min() and indices.max() <= self.n_bins, f"Indices have to be in [0, {self.n_bins}] but got [{indices.min()}, {indices.max()}]"
-        assert len(
-            possible_distances) == self.n_bins, f"Calculated amount of bins ({len(possible_distances)}) differs from requested amount ({self.n_bins})"
+        assert (
+            0 <= indices.min() and indices.max() <= self.n_bins
+        ), f"Indices have to be in [0, {self.n_bins}] but got [{indices.min()}, {indices.max()}]"
+        assert (
+            len(possible_distances) == self.n_bins
+        ), f"Calculated amount of bins ({len(possible_distances)}) differs from requested amount ({self.n_bins})"
 
         return indices, possible_distances

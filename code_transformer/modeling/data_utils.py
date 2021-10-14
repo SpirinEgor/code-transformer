@@ -35,11 +35,9 @@ def permutation_attention_mask(inputs, is_masked, perm_size, seq_len, sep_id=-1,
     # Generate permutation indices
     index = torch.arange(seq_len, dtype=torch.int64).to(inputs.device)
     index_batch = index[None, :].expand([batch_size, -1])
-    index_batch = torch.reshape(index_batch,
-                                [batch_size, -1, perm_size]).transpose(1, 2)
+    index_batch = torch.reshape(index_batch, [batch_size, -1, perm_size]).transpose(1, 2)
 
-    randperm = torch.stack([torch.randperm(index_batch.shape[1])
-                            for _ in range(batch_size)])
+    randperm = torch.stack([torch.randperm(index_batch.shape[1]) for _ in range(batch_size)])
     index_batch = index_batch.gather(1, index=randperm.unsqueeze(-1))
     index_batch = torch.reshape(index_batch.transpose(1, 2), [batch_size, -1])
 
@@ -85,7 +83,12 @@ def permutation_attention_mask(inputs, is_masked, perm_size, seq_len, sep_id=-1,
     return perm_mask, target_mask, inputs_k, inputs_q
 
 
-def sample_targets(num_predict, seq_len, batch_size, pad_mask=None, ):
+def sample_targets(
+    num_predict,
+    seq_len,
+    batch_size,
+    pad_mask=None,
+):
     """
     :return: a batch_size x num_predict x seq_len tensor containing the chosen token to be masked per sequence and
     prediction
@@ -97,6 +100,7 @@ def sample_targets(num_predict, seq_len, batch_size, pad_mask=None, ):
         num_non_padded = torch.ones(batch_size, dtype=torch.long) * seq_len
 
     import numpy as np
+
     target_idx = [np.random.choice(np.arange(num_tokens), num_predict, replace=False) for num_tokens in num_non_padded]
     ixs = torch.from_numpy(np.array(target_idx))
 

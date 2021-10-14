@@ -22,28 +22,35 @@ class DistancesTransformer:
         G = sample.ast.to_networkx(create_using=nx.Graph)
         adj = torch.tensor(nx.to_numpy_matrix(G))
         graph_sample = {
-            'adj': adj,
-            'node_types': [node.node_type for node in sample.ast.nodes.values()],
-            'distances': {}
+            "adj": adj,
+            "node_types": [node.node_type for node in sample.ast.nodes.values()],
+            "distances": {},
         }
         for distance_metric in self.distance_metrics:
             distance_matrix = distance_metric(adj)
             if self.distance_binning:
                 indices, bins = self.distance_binning(distance_matrix)
                 distance_matrix = (indices, bins, distance_metric.get_name())
-            graph_sample['distances'][distance_metric.get_name()] = distance_matrix
+            graph_sample["distances"][distance_metric.get_name()] = distance_matrix
 
         if self.distance_binning:
-            graph_sample['distances'] = list(graph_sample['distances'].values())
+            graph_sample["distances"] = list(graph_sample["distances"].values())
 
-        return CTStage2Sample(sample.tokens, graph_sample, sample.token_mapping, sample.stripped_code_snippet,
-                              sample.func_name, sample.docstring,
-                              sample.encoded_func_name if hasattr(sample, 'encoded_func_name') else None)
+        return CTStage2Sample(
+            sample.tokens,
+            graph_sample,
+            sample.token_mapping,
+            sample.stripped_code_snippet,
+            sample.func_name,
+            sample.docstring,
+            sample.encoded_func_name if hasattr(sample, "encoded_func_name") else None,
+        )
 
 
 # =============================================================================
 # Experiment-Time distance transforms
 # =============================================================================
+
 
 class TokenDistancesTransform:
     name = "token_distances"
@@ -72,7 +79,7 @@ class MaxDistanceMaskTransform:
     a node exceeded max distance for ANY of the distance types (logical or)
     """
 
-    def __init__(self, max_dist_per_type: Dict[str, float], agg_att_masks='or'):
+    def __init__(self, max_dist_per_type: Dict[str, float], agg_att_masks="or"):
         """
         :param max_dist_per_type: specifies the maximum distance for every distance type. Use -1 to indicate there is
              no max distance for that type. Every distance type has to be specified
@@ -80,13 +87,14 @@ class MaxDistanceMaskTransform:
             be aggregated
         """
         self.max_dist_per_type = max_dist_per_type
-        assert agg_att_masks in {'or', 'and'}, f"agg_att_masks can only be one of 'or', 'and'. Got {agg_att_masks}"
+        assert agg_att_masks in {"or", "and"}, f"agg_att_masks can only be one of 'or', 'and'. Got {agg_att_masks}"
         self.agg_att_masks = agg_att_masks
 
-    def __call__(self, dist_matrices: List[torch.Tensor], binning_vectors: List[torch.Tensor],
-                 dist_names: List[str]) -> torch.Tensor:
+    def __call__(
+        self, dist_matrices: List[torch.Tensor], binning_vectors: List[torch.Tensor], dist_names: List[str]
+    ) -> torch.Tensor:
         attention_mask = torch.zeros_like(dist_matrices[0])
-        if self.agg_att_masks == 'and':
+        if self.agg_att_masks == "and":
             attention_mask += 1
         for dist_matrix, binning_vector, dist_name in zip(dist_matrices, binning_vectors, dist_names):
 
@@ -99,9 +107,9 @@ class MaxDistanceMaskTransform:
             att_mask = torch.zeros_like(dist_matrix)
             idx_far_away = torch.where(binning_vector[dist_matrix].abs() > max_distance)
             att_mask[idx_far_away] = 1
-            if self.agg_att_masks == 'or':
+            if self.agg_att_masks == "or":
                 attention_mask |= att_mask
-            elif self.agg_att_masks == 'and':
+            elif self.agg_att_masks == "and":
                 attention_mask &= att_mask
 
         return attention_mask
@@ -110,6 +118,7 @@ class MaxDistanceMaskTransform:
 # =============================================================================
 # Other transformations
 # =============================================================================
+
 
 class PreprocessAdj:
     """
@@ -120,11 +129,14 @@ class PreprocessAdj:
         self.replace_adj = replace_adj
         pass
 
-    def __call__(self, sample, ):
-        adjs = sample['adjs']
-        adj_prep = preprocess_adj(adjs['adj'])
+    def __call__(
+        self,
+        sample,
+    ):
+        adjs = sample["adjs"]
+        adj_prep = preprocess_adj(adjs["adj"])
         if self.replace_adj:
-            adjs['adj'] = adj_prep
+            adjs["adj"] = adj_prep
         else:
-            adjs['adj_prep'] = adj_prep
+            adjs["adj_prep"] = adj_prep
         return sample

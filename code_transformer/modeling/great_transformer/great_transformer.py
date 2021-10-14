@@ -10,13 +10,13 @@ from code_transformer.preprocessing.dataset.code_summarization import GreatBatch
 
 class AttentionLayer(nn.Module):
     """
-        Implementation of multi-headed attention with optional edge-bias.
+    Implementation of multi-headed attention with optional edge-bias.
 
-        This class supports self-attention and key-value attention, with (non-optional) masks. If bias_dim is not None,
-         the attention computation(s) assumes that a (sparse) bias vector is provided, formatted like:
-         (edge_type, batch_index, key_index, query_index). Bias edge types are embedded in the same dimension as each
-          head's attention and projected to a scalar before being inserted into the attention computation as
-          (q + b) * k.
+    This class supports self-attention and key-value attention, with (non-optional) masks. If bias_dim is not None,
+     the attention computation(s) assumes that a (sparse) bias vector is provided, formatted like:
+     (edge_type, batch_index, key_index, query_index). Bias edge types are embedded in the same dimension as each
+      head's attention and projected to a scalar before being inserted into the attention computation as
+      (q + b) * k.
     """
 
     def __init__(self, attention_dim, num_heads=None, hidden_dim=None, bias_dim=None):
@@ -46,20 +46,20 @@ class AttentionLayer(nn.Module):
         alpha = self.get_attention_weights(query, keys, masks, attention_bias)
 
         # Compute weigthed context and project out.
-        context = torch.einsum('bhqk,bkha->bqha', alpha, values)
-        context = torch.einsum('btha,had->btd', context, self.weight_out)
+        context = torch.einsum("bhqk,bkha->bqha", alpha, values)
+        context = torch.einsum("btha,had->btd", context, self.weight_out)
         return context
 
     # Compute key, query and value vectors.
     def compute_qkv(self, states, key_states):
-        query = torch.einsum('btd,dha->btha', states, self.attn_query)  # Queries are always computed on states
-        keys = torch.einsum('btd,dha->btha', states if key_states is None else key_states, self.attn_keys)
-        values = torch.einsum('btd,dha->btha', states if key_states is None else key_states, self.attn_values)
+        query = torch.einsum("btd,dha->btha", states, self.attn_query)  # Queries are always computed on states
+        keys = torch.einsum("btd,dha->btha", states if key_states is None else key_states, self.attn_keys)
+        values = torch.einsum("btd,dha->btha", states if key_states is None else key_states, self.attn_values)
         return query, keys, values
 
     # Compute attention weights from cross-product between keys and queries (scaled, masked, softmaxed).
     def get_attention_weights(self, query, keys, masks, attention_bias):
-        alpha = torch.einsum('bkha,bqha->bhqk', keys, query)
+        alpha = torch.einsum("bkha,bqha->bhqk", keys, query)
 
         # If bias_dim is set, assume that a bias vector is provided.
         if self.bias_dim is not None:
@@ -71,8 +71,7 @@ class AttentionLayer(nn.Module):
             alpha_shape = alpha.shape
             bias_shape = torch.tensor([alpha_shape[0], alpha_shape[2], alpha_shape[3]])
             # Scatter edge biases to their [batch_index, key_index, query_index] positions.
-            bs = torch.zeros([alpha_shape[0], alpha_shape[2], alpha_shape[3]],
-                             device=next(self.parameters()).device)
+            bs = torch.zeros([alpha_shape[0], alpha_shape[2], alpha_shape[3]], device=next(self.parameters()).device)
             bs[tuple(attention_bias[:, 1:].t())] = bias
             bias = bs
             # bias = torch.scatter_nd(attention_bias[:, 1:], bias, bias_shape)
@@ -80,13 +79,15 @@ class AttentionLayer(nn.Module):
             # Since bias is a scalar, we can reduce memory cost by rewriting the attention from (q + b) * k to q*k +
             # b*reduce_sum(k, -1)
             keys = keys.sum(-1)  # bkh
-            bias = torch.einsum('bqk,bkh->bhqk', bias, keys)
+            bias = torch.einsum("bqk,bkh->bhqk", bias, keys)
             # Accordingly, simply add the bias as a residual to standard dot-product attention.
             alpha = alpha + bias
 
         # Scale and apply mask
-        alpha *= (1 / torch.tensor(self.attention_dim_per_head,
-                                   device=next(self.parameters()).device).to(torch.float32).sqrt())
+        alpha *= (
+            1
+            / torch.tensor(self.attention_dim_per_head, device=next(self.parameters()).device).to(torch.float32).sqrt()
+        )
         if masks is not None:
             masks = masks.unsqueeze(1)
             alpha = alpha - masks * torch.finfo(torch.float32).max
@@ -132,6 +133,7 @@ class Transformer(nn.Module):
         To generate language from the resulting states, pass the states to the "predict" function. Note that it
         assumes that the input vocabulary is output vocabulary (i.e., it reuses the model's embedding table).
     """
+
     NOOP_BIAS = torch.zeros((0, 4), dtype=torch.int32)
 
     def __init__(self, model_config, bias_dim=None):
@@ -157,14 +159,18 @@ class Transformer(nn.Module):
             self.enc_attention = nn.ModuleList([make_att() for _ in range(self.num_layers)])
 
         # Layer normalization for every residual layer
-        self.ln = nn.ModuleList([nn.ModuleList([LayerNormalization(self.embed_dim)
-                                                for _ in range(3 if self.is_encoder_decoder else 2)])
-                                 for _ in range(self.num_layers)])
+        self.ln = nn.ModuleList(
+            [
+                nn.ModuleList([LayerNormalization(self.embed_dim) for _ in range(3 if self.is_encoder_decoder else 2)])
+                for _ in range(self.num_layers)
+            ]
+        )
         self.ln_out = LayerNormalization(self.embed_dim)
 
         # Two-layer feed-forward with wide layer in the middle
-        self.ff_1 = nn.ModuleList([nn.Sequential(nn.Linear(self.hidden_dim, self.ff_dim),
-                                                 nn.ReLU()) for _ in range(self.num_layers)])
+        self.ff_1 = nn.ModuleList(
+            [nn.Sequential(nn.Linear(self.hidden_dim, self.ff_dim), nn.ReLU()) for _ in range(self.num_layers)]
+        )
         self.ff_2 = nn.ModuleList([nn.Linear(self.ff_dim, self.hidden_dim) for _ in range(self.num_layers)])
 
     def forward(self, states, masks, attention_bias):
@@ -186,9 +192,10 @@ class Transformer(nn.Module):
     def embed_inputs(self, inputs):
         # states = self.embed(inputs)
         states = inputs
-        states = (states *
-                  torch.tensor(states.shape[-1], dtype=torch.float32, device=next(self.parameters()).device).sqrt())
-        states = states + self.pos_enc[:states.shape[1]].to(next(self.parameters()).device)[None, :, None]
+        states = (
+            states * torch.tensor(states.shape[-1], dtype=torch.float32, device=next(self.parameters()).device).sqrt()
+        )
+        states = states + self.pos_enc[: states.shape[1]].to(next(self.parameters()).device)[None, :, None]
         return states
 
     # Standard encoder-decoder attention, with dropout if training=True.
@@ -203,7 +210,9 @@ class Transformer(nn.Module):
 
             new_states = self.ln[ix][2](states)
             new_states = self.enc_attention[ix](new_states, key_states, key_masks, attention_bias)
-            new_states = self.dropout(new_states, )
+            new_states = self.dropout(
+                new_states,
+            )
             states = states + new_states
 
             new_states = self.ff_1[ix](self.ln[ix][1](states))
@@ -219,7 +228,6 @@ class Transformer(nn.Module):
 
 
 class GreatEncoder(nn.Module):
-
     def __init__(self, config: GreatEncoderConfig, shared_embedding: Optional[nn.Embedding] = None):
         super(GreatEncoder, self).__init__()
         self.transformer = Transformer(model_config=config.transformer_config)
@@ -230,8 +238,9 @@ class GreatEncoder(nn.Module):
             self.token_embedding = shared_embedding
         else:
             self.token_embedding = nn.Embedding(self.vocab_size, self.transformer.embed_dim)
-        self.token_linear_down = nn.Linear(self.subtokens_per_token * self.transformer.embed_dim,
-                                           self.transformer.embed_dim)
+        self.token_linear_down = nn.Linear(
+            self.subtokens_per_token * self.transformer.embed_dim, self.transformer.embed_dim
+        )
 
         if config.num_languages is not None:
             self.language_embedding = nn.Embedding(config.num_languages, self.transformer.embed_dim)
@@ -240,13 +249,15 @@ class GreatEncoder(nn.Module):
 
         self._reset_parameters()
 
-    def forward(self, input_tokens: torch.Tensor,
-                edge_ixs,  # [edge_type, batch_index, source_index, target_index]
-                attention_mask: Optional[torch.Tensor] = None,
-                pad_mask: Optional[torch.Tensor] = None,
-                need_all_embeddings=False,
-                languages: Optional[torch.Tensor] = None
-                ):
+    def forward(
+        self,
+        input_tokens: torch.Tensor,
+        edge_ixs,  # [edge_type, batch_index, source_index, target_index]
+        attention_mask: Optional[torch.Tensor] = None,
+        pad_mask: Optional[torch.Tensor] = None,
+        need_all_embeddings=False,
+        languages: Optional[torch.Tensor] = None,
+    ):
         """
         :param input_tokens:
             the input token sequence
@@ -270,18 +281,21 @@ class GreatEncoder(nn.Module):
 
         attention_mask = (attention_mask + pad_mask.unsqueeze(1) + pad_mask.unsqueeze(2)).clamp_max(1)
 
-        transformer_output = self.transformer.forward(token_embeddings,
-                                                      masks=attention_mask,
-                                                      attention_bias=edge_ixs.t(),
-                                                      )
+        transformer_output = self.transformer.forward(
+            token_embeddings,
+            masks=attention_mask,
+            attention_bias=edge_ixs.t(),
+        )
         return transformer_output
 
     def forward_batch(self, batch: GreatBatch):
-        return self.forward(input_tokens=batch.tokens,
-                            edge_ixs=batch.edge_ixs,
-                            attention_mask=batch.attention_mask,
-                            pad_mask=batch.pad_mask,
-                            languages=batch.languages)
+        return self.forward(
+            input_tokens=batch.tokens,
+            edge_ixs=batch.edge_ixs,
+            attention_mask=batch.attention_mask,
+            pad_mask=batch.pad_mask,
+            languages=batch.languages,
+        )
 
     def _reset_parameters(self):
         r"""Initiate parameters in the transformer model."""

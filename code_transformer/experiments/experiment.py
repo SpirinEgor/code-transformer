@@ -15,26 +15,39 @@ from code_transformer.configuration.transformer_lm_encoder import TransformerLME
 from code_transformer.experiments.log import ExperimentLogger, TensorboardLogger
 from code_transformer.modeling.constants import PAD_TOKEN, UNKNOWN_TOKEN, EOS_TOKEN, NUM_SUB_TOKENS
 from code_transformer.modeling.modelmanager import ModelManager
-from code_transformer.modeling.modelmanager.code_transformer import CodeTransformerModelManager, \
-    CodeTransformerLMModelManager
-from code_transformer.preprocessing.datamanager.base import batch_filter_distances, batch_to_device, \
-    DataLoaderWrapper, BufferedDataManager
+from code_transformer.modeling.modelmanager.code_transformer import (
+    CodeTransformerModelManager,
+    CodeTransformerLMModelManager,
+)
+from code_transformer.preprocessing.datamanager.base import (
+    batch_filter_distances,
+    batch_to_device,
+    DataLoaderWrapper,
+    BufferedDataManager,
+)
 from code_transformer.preprocessing.datamanager.preprocessed import CTBufferedDataManager
-from code_transformer.preprocessing.dataset.lm import CTLanguageModelingDataset, \
-    CTLanguageModelingDatasetNoPunctuation
+from code_transformer.preprocessing.dataset.lm import CTLanguageModelingDataset, CTLanguageModelingDatasetNoPunctuation
 from code_transformer.preprocessing.graph.binning import ExponentialBinning, EqualBinning
 from code_transformer.preprocessing.graph.distances import DistanceBinning
 from code_transformer.preprocessing.graph.transform import MaxDistanceMaskTransform, TokenDistancesTransform
-from code_transformer.utils.metrics import top1_accuracy, topk_accuracy, precision, recall, f1_score, \
-    non_trivial_words_accuracy, micro_f1_score, rouge_2, rouge_l
+from code_transformer.utils.metrics import (
+    top1_accuracy,
+    topk_accuracy,
+    precision,
+    recall,
+    f1_score,
+    non_trivial_words_accuracy,
+    micro_f1_score,
+    rouge_2,
+    rouge_l,
+)
 from code_transformer.utils.timing import Timing
 from code_transformer.env import MODELS_SAVE_PATH, LOGS_PATH, DATA_PATH_STAGE_2
 
-ex = Experiment(base_dir='../../', interactive=False)
+ex = Experiment(base_dir="../../", interactive=False)
 
 
 class ExperimentSetup:
-
     def __init__(self):
         self._init_config()
         self._init_data_transforms()
@@ -52,126 +65,185 @@ class ExperimentSetup:
         self.max_distance_mask = None if max_distance_mask is None else MaxDistanceMaskTransform(max_distance_mask)
         self.relative_distances = [] if relative_distances is None else relative_distances
 
-        if distance_binning['type'] == 'exponential':
-            trans_func = ExponentialBinning(distance_binning['growth_factor'])
+        if distance_binning["type"] == "exponential":
+            trans_func = ExponentialBinning(distance_binning["growth_factor"])
         else:
             trans_func = EqualBinning()
-        self.distance_binning = {
-            'n_fixed_bins': distance_binning['n_fixed_bins'],
-            'trans_func': trans_func
-        }
+        self.distance_binning = {"n_fixed_bins": distance_binning["n_fixed_bins"], "trans_func": trans_func}
 
     @ex.capture(prefix="data_setup")
-    def _init_data(self, language, num_predict, use_validation=False, mini_dataset=False,
-                   use_no_punctuation=False, use_pointer_network=False, sort_by_length=False, shuffle=True,
-                   chunk_size=None, filter_language=None, dataset_imbalance=None, num_sub_tokens=NUM_SUB_TOKENS):
-        self.data_manager = CTBufferedDataManager(DATA_PATH_STAGE_2, language, shuffle=shuffle,
-                                                  infinite_loading=True,
-                                                  mini_dataset=mini_dataset, size_load_buffer=10000,
-                                                  sort_by_length=sort_by_length, chunk_size=chunk_size,
-                                                  filter_language=filter_language, dataset_imbalance=dataset_imbalance)
+    def _init_data(
+        self,
+        language,
+        num_predict,
+        use_validation=False,
+        mini_dataset=False,
+        use_no_punctuation=False,
+        use_pointer_network=False,
+        sort_by_length=False,
+        shuffle=True,
+        chunk_size=None,
+        filter_language=None,
+        dataset_imbalance=None,
+        num_sub_tokens=NUM_SUB_TOKENS,
+    ):
+        self.data_manager = CTBufferedDataManager(
+            DATA_PATH_STAGE_2,
+            language,
+            shuffle=shuffle,
+            infinite_loading=True,
+            mini_dataset=mini_dataset,
+            size_load_buffer=10000,
+            sort_by_length=sort_by_length,
+            chunk_size=chunk_size,
+            filter_language=filter_language,
+            dataset_imbalance=dataset_imbalance,
+        )
         self.word_vocab, self.token_type_vocab, self.node_type_vocab = self.data_manager.load_vocabularies()
 
         token_distances = None
         if TokenDistancesTransform.name in self.relative_distances:
-            num_bins = self.data_manager.load_config()['binning']['num_bins']
+            num_bins = self.data_manager.load_config()["binning"]["num_bins"]
             token_distances = TokenDistancesTransform(
-                DistanceBinning(num_bins, self.distance_binning['n_fixed_bins'], self.distance_binning['trans_func']))
+                DistanceBinning(num_bins, self.distance_binning["n_fixed_bins"], self.distance_binning["trans_func"])
+            )
 
         self.num_predict = num_predict
         self.use_pointer_network = use_pointer_network
         self.use_separate_vocab = False  # For language modeling we always only operate on the method body vocabulary
 
         if use_no_punctuation:
-            self.dataset_train = CTLanguageModelingDatasetNoPunctuation(self.data_manager,
-                                                                        token_distances=token_distances,
-                                                                        max_distance_mask=self.max_distance_mask,
-                                                                        num_labels_per_sample=num_predict,
-                                                                        use_pointer_network=use_pointer_network,
-                                                                        num_sub_tokens=num_sub_tokens)
+            self.dataset_train = CTLanguageModelingDatasetNoPunctuation(
+                self.data_manager,
+                token_distances=token_distances,
+                max_distance_mask=self.max_distance_mask,
+                num_labels_per_sample=num_predict,
+                use_pointer_network=use_pointer_network,
+                num_sub_tokens=num_sub_tokens,
+            )
         else:
-            self.dataset_train = CTLanguageModelingDataset(self.data_manager, token_distances=token_distances,
-                                                           max_distance_mask=self.max_distance_mask,
-                                                           num_labels_per_sample=num_predict,
-                                                           use_pointer_network=use_pointer_network,
-                                                           num_sub_tokens=num_sub_tokens)
+            self.dataset_train = CTLanguageModelingDataset(
+                self.data_manager,
+                token_distances=token_distances,
+                max_distance_mask=self.max_distance_mask,
+                num_labels_per_sample=num_predict,
+                use_pointer_network=use_pointer_network,
+                num_sub_tokens=num_sub_tokens,
+            )
 
         self.use_validation = use_validation
         if self.use_validation:
-            data_manager_validation = CTBufferedDataManager(DATA_PATH_STAGE_2, language, partition="valid",
-                                                            shuffle=True, infinite_loading=True,
-                                                            mini_dataset=mini_dataset, size_load_buffer=10000,
-                                                            filter_language=filter_language,
-                                                            dataset_imbalance=dataset_imbalance)
+            data_manager_validation = CTBufferedDataManager(
+                DATA_PATH_STAGE_2,
+                language,
+                partition="valid",
+                shuffle=True,
+                infinite_loading=True,
+                mini_dataset=mini_dataset,
+                size_load_buffer=10000,
+                filter_language=filter_language,
+                dataset_imbalance=dataset_imbalance,
+            )
             if use_no_punctuation:
-                self.dataset_validation = CTLanguageModelingDatasetNoPunctuation(data_manager_validation,
-                                                                                 token_distances=token_distances,
-                                                                                 max_distance_mask=self.max_distance_mask,
-                                                                                 num_labels_per_sample=num_predict,
-                                                                                 use_pointer_network=use_pointer_network,
-                                                                                 num_sub_tokens=num_sub_tokens)
+                self.dataset_validation = CTLanguageModelingDatasetNoPunctuation(
+                    data_manager_validation,
+                    token_distances=token_distances,
+                    max_distance_mask=self.max_distance_mask,
+                    num_labels_per_sample=num_predict,
+                    use_pointer_network=use_pointer_network,
+                    num_sub_tokens=num_sub_tokens,
+                )
             else:
-                self.dataset_validation = CTLanguageModelingDataset(data_manager_validation,
-                                                                    token_distances=token_distances,
-                                                                    max_distance_mask=self.max_distance_mask,
-                                                                    num_labels_per_sample=num_predict,
-                                                                    use_pointer_network=use_pointer_network,
-                                                                    num_sub_tokens=num_sub_tokens)
-        self.dataset_validation_creator = \
-            lambda infinite_loading: self._create_validation_dataset(DATA_PATH_STAGE_2,
-                                                                     language,
-                                                                     use_no_punctuation,
-                                                                     token_distances,
-                                                                     infinite_loading,
-                                                                     num_predict,
-                                                                     use_pointer_network,
-                                                                     filter_language,
-                                                                     dataset_imbalance,
-                                                                     num_sub_tokens)
+                self.dataset_validation = CTLanguageModelingDataset(
+                    data_manager_validation,
+                    token_distances=token_distances,
+                    max_distance_mask=self.max_distance_mask,
+                    num_labels_per_sample=num_predict,
+                    use_pointer_network=use_pointer_network,
+                    num_sub_tokens=num_sub_tokens,
+                )
+        self.dataset_validation_creator = lambda infinite_loading: self._create_validation_dataset(
+            DATA_PATH_STAGE_2,
+            language,
+            use_no_punctuation,
+            token_distances,
+            infinite_loading,
+            num_predict,
+            use_pointer_network,
+            filter_language,
+            dataset_imbalance,
+            num_sub_tokens,
+        )
 
-    def _create_validation_dataset(self, data_location, language, use_no_punctuation, token_distances,
-                                   infinite_loading, num_predict, use_pointer_network, filter_language,
-                                   dataset_imbalance, num_sub_tokens):
-        data_manager_validation = CTBufferedDataManager(data_location, language, partition="valid",
-                                                        shuffle=True, infinite_loading=infinite_loading,
-                                                        size_load_buffer=10000, filter_language=filter_language,
-                                                        dataset_imbalance=dataset_imbalance)
+    def _create_validation_dataset(
+        self,
+        data_location,
+        language,
+        use_no_punctuation,
+        token_distances,
+        infinite_loading,
+        num_predict,
+        use_pointer_network,
+        filter_language,
+        dataset_imbalance,
+        num_sub_tokens,
+    ):
+        data_manager_validation = CTBufferedDataManager(
+            data_location,
+            language,
+            partition="valid",
+            shuffle=True,
+            infinite_loading=infinite_loading,
+            size_load_buffer=10000,
+            filter_language=filter_language,
+            dataset_imbalance=dataset_imbalance,
+        )
         if use_no_punctuation:
-            return CTLanguageModelingDatasetNoPunctuation(data_manager_validation,
-                                                          token_distances=token_distances,
-                                                          max_distance_mask=self.max_distance_mask,
-                                                          num_labels_per_sample=num_predict,
-                                                          use_pointer_network=use_pointer_network,
-                                                          num_sub_tokens=num_sub_tokens)
+            return CTLanguageModelingDatasetNoPunctuation(
+                data_manager_validation,
+                token_distances=token_distances,
+                max_distance_mask=self.max_distance_mask,
+                num_labels_per_sample=num_predict,
+                use_pointer_network=use_pointer_network,
+                num_sub_tokens=num_sub_tokens,
+            )
         else:
-            return CTLanguageModelingDataset(data_manager_validation,
-                                             token_distances=token_distances,
-                                             max_distance_mask=self.max_distance_mask,
-                                             num_labels_per_sample=num_predict,
-                                             use_pointer_network=use_pointer_network,
-                                             num_sub_tokens=num_sub_tokens)
+            return CTLanguageModelingDataset(
+                data_manager_validation,
+                token_distances=token_distances,
+                max_distance_mask=self.max_distance_mask,
+                num_labels_per_sample=num_predict,
+                use_pointer_network=use_pointer_network,
+                num_sub_tokens=num_sub_tokens,
+            )
 
     @ex.capture(prefix="transfer_learning")
-    def _init_transfer_learning(self, use_pretrained_model=False, model_type=None, run_id=None,
-                                snapshot_iteration=None, cpu=False, freeze_encoder_layers=None):
+    def _init_transfer_learning(
+        self,
+        use_pretrained_model=False,
+        model_type=None,
+        run_id=None,
+        snapshot_iteration=None,
+        cpu=False,
+        freeze_encoder_layers=None,
+    ):
         assert not use_pretrained_model or (
-                run_id is not None
-                and snapshot_iteration is not None
-                and model_type is not None), "model_type, run_id and snapshot_iteration have to be provided if " \
-                                             "use_pretrained_model is set"
+            run_id is not None and snapshot_iteration is not None and model_type is not None
+        ), ("model_type, run_id and snapshot_iteration have to be provided if " "use_pretrained_model is set")
 
         self.use_pretrained_model = use_pretrained_model
         if use_pretrained_model:
 
             print(
                 f"Using Transfer Learning. Loading snapshot snapshot-{snapshot_iteration} from run {run_id} in collection "
-                f"{model_type} ")
+                f"{model_type} "
+            )
 
-            if model_type == 'ct_code_summarization':
+            if model_type == "ct_code_summarization":
                 model_manager = CodeTransformerModelManager()
                 pretrained_model = model_manager.load_model(run_id, snapshot_iteration, gpu=not cpu)
                 self.pretrained_model = pretrained_model
-            elif model_type == 'ct_lm':
+            elif model_type == "ct_lm":
                 model_manager = CodeTransformerLMModelManager()
                 pretrained_model = model_manager.load_model(run_id, snapshot_iteration, gpu=not cpu)
                 self.pretrained_model = pretrained_model
@@ -179,7 +251,7 @@ class ExperimentSetup:
                 model_manager = ModelManager(MODELS_SAVE_PATH, model_type)
 
                 self.pretrained_model_params = model_manager.load_parameters(run_id, snapshot_iteration, gpu=not cpu)
-                encoder_config = model_manager.load_config(run_id)['model']['transformer_lm_encoder']
+                encoder_config = model_manager.load_config(run_id)["model"]["transformer_lm_encoder"]
                 self.pretrained_transformer_encoder_config = TransformerLMEncoderConfig(**encoder_config)
 
             if freeze_encoder_layers is not None:
@@ -190,12 +262,15 @@ class ExperimentSetup:
         if self.use_pretrained_model:
             loaded_config = self.pretrained_transformer_encoder_config
             if not config == self.pretrained_transformer_encoder_config:
-                print(f"pretrained configuration differs from given configuration. Pretrained: "
-                      f"{self.pretrained_transformer_encoder_config}, Given: {config}. Try merging...")
+                print(
+                    f"pretrained configuration differs from given configuration. Pretrained: "
+                    f"{self.pretrained_transformer_encoder_config}, Given: {config}. Try merging..."
+                )
                 loaded_config.input_nonlinearity = config.input_nonlinearity
-                loaded_config.transformer['encoder_layer']['dropout'] = config.transformer['encoder_layer']['dropout']
-                loaded_config.transformer['encoder_layer']['activation'] \
-                    = config.transformer['encoder_layer']['activation']
+                loaded_config.transformer["encoder_layer"]["dropout"] = config.transformer["encoder_layer"]["dropout"]
+                loaded_config.transformer["encoder_layer"]["activation"] = config.transformer["encoder_layer"][
+                    "activation"
+                ]
             config = loaded_config
 
         transformer_config = dict(config.transformer)
@@ -210,12 +285,12 @@ class ExperimentSetup:
         if hasattr(self, "node_type_vocab"):
             config.num_node_types = len(self.node_type_vocab)
         if hasattr(self, "relative_distances"):
-            encoder_layer_config = dict(transformer_config['encoder_layer'])
-            encoder_layer_config['num_relative_distances'] = len(self.relative_distances)
-            transformer_config['encoder_layer'] = encoder_layer_config
+            encoder_layer_config = dict(transformer_config["encoder_layer"])
+            encoder_layer_config["num_relative_distances"] = len(self.relative_distances)
+            transformer_config["encoder_layer"] = encoder_layer_config
         if hasattr(self, "num_sub_tokens"):
             config.subtokens_per_token = self.num_sub_tokens
-        if hasattr(self, 'num_languages'):
+        if hasattr(self, "num_languages"):
             config.num_languages = self.num_languages
 
         config.transformer = transformer_config
@@ -229,16 +304,17 @@ class ExperimentSetup:
 
     @ex.capture(prefix="optimizer")
     def _init_optimizer(self, learning_rate, reg_scale, scheduler=None, scheduler_params=None, optimizer="Adam"):
-        if optimizer == 'Adam':
+        if optimizer == "Adam":
             self.optimizer = optim.Adam(self.model_lm.parameters(), lr=learning_rate, weight_decay=reg_scale)
-        elif optimizer == 'Momentum':
-            self.optimizer = optim.SGD(self.model_lm.parameters(), lr=learning_rate, weight_decay=reg_scale,
-                                       momentum=0.95, nesterov=True)
+        elif optimizer == "Momentum":
+            self.optimizer = optim.SGD(
+                self.model_lm.parameters(), lr=learning_rate, weight_decay=reg_scale, momentum=0.95, nesterov=True
+            )
 
         self.scheduler = None
-        if scheduler == 'OneCycleLR':
+        if scheduler == "OneCycleLR":
             self.scheduler = optim.lr_scheduler.OneCycleLR(self.optimizer, **scheduler_params)
-        elif scheduler == 'MultiStepLR':
+        elif scheduler == "MultiStepLR":
             self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, **scheduler_params)
 
     def _init_metrics(self, metrics):
@@ -246,44 +322,59 @@ class ExperimentSetup:
         pad_id = self.word_vocab[PAD_TOKEN]
         unk_id = self.word_vocab[UNKNOWN_TOKEN]
         for metric in metrics:
-            if metric == 'top1_accuracy':
+            if metric == "top1_accuracy":
                 self.metrics[metric] = top1_accuracy
-                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: top1_accuracy(logits, labels,
-                                                                                        unk_id=unk_id, pad_id=pad_id)
-            elif metric == 'top5_accuracy':
+                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: top1_accuracy(
+                    logits, labels, unk_id=unk_id, pad_id=pad_id
+                )
+            elif metric == "top5_accuracy":
                 self.metrics[metric] = lambda logits, labels: topk_accuracy(5, logits, labels)
-                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: topk_accuracy(5, logits, labels,
-                                                                                        unk_id=unk_id, pad_id=pad_id)
-            elif metric == 'precision':
+                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: topk_accuracy(
+                    5, logits, labels, unk_id=unk_id, pad_id=pad_id
+                )
+            elif metric == "precision":
                 self.metrics[metric] = lambda logits, labels: precision(logits, labels, pad_id=pad_id)
-                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: precision(logits, labels, pad_id=pad_id,
-                                                                                    unk_id=unk_id)
-            elif metric == 'recall':
+                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: precision(
+                    logits, labels, pad_id=pad_id, unk_id=unk_id
+                )
+            elif metric == "recall":
                 self.metrics[metric] = lambda logits, labels: recall(logits, labels, pad_id=pad_id)
-                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: recall(logits, labels, pad_id=pad_id,
-                                                                                 unk_id=unk_id)
-            elif metric == 'f1_score':
+                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: recall(
+                    logits, labels, pad_id=pad_id, unk_id=unk_id
+                )
+            elif metric == "f1_score":
                 self.metrics[metric] = lambda logits, labels: f1_score(logits, labels, pad_id=pad_id)
-                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: f1_score(logits, labels, pad_id=pad_id,
-                                                                                   unk_id=unk_id)
-            elif metric == 'non_trivial_accuracy':
+                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: f1_score(
+                    logits, labels, pad_id=pad_id, unk_id=unk_id
+                )
+            elif metric == "non_trivial_accuracy":
                 self.metrics[metric] = lambda logits, labels: non_trivial_words_accuracy(logits, labels, pad_id)
-                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: non_trivial_words_accuracy(logits, labels,
-                                                                                                     pad_id,
-                                                                                                     unk_id=unk_id)
-            elif metric == 'micro_f1_score':
-                self.metrics[metric] = lambda logits, labels: micro_f1_score(logits, labels, pad_id=pad_id,
-                                                                             unk_id=unk_id)
-            elif metric == 'rouge_2':
+                self.metrics[f"{metric}_no_unk"] = lambda logits, labels: non_trivial_words_accuracy(
+                    logits, labels, pad_id, unk_id=unk_id
+                )
+            elif metric == "micro_f1_score":
+                self.metrics[metric] = lambda logits, labels: micro_f1_score(
+                    logits, labels, pad_id=pad_id, unk_id=unk_id
+                )
+            elif metric == "rouge_2":
                 self.metrics[metric] = lambda logits, labels: rouge_2(logits, labels, pad_id=pad_id)
-            elif metric == 'rouge_l':
+            elif metric == "rouge_l":
                 self.metrics[metric] = lambda logits, labels: rouge_l(logits, labels, pad_id=pad_id)
 
     @ex.capture(prefix="training")
-    def train(self, batch_size, simulated_batch_size, random_seed, metrics,
-              validate_every=None,
-              persistent_snapshot_every=None, simulated_batch_size_valid=None, early_stopping_patience=10,
-              max_validation_samples=10000, accumulate_tokens_batch=False):
+    def train(
+        self,
+        batch_size,
+        simulated_batch_size,
+        random_seed,
+        metrics,
+        validate_every=None,
+        persistent_snapshot_every=None,
+        simulated_batch_size_valid=None,
+        early_stopping_patience=10,
+        max_validation_samples=10000,
+        accumulate_tokens_batch=False,
+    ):
 
         if self.with_cuda:
             self.model_lm = self.model_lm.cuda()
@@ -293,8 +384,9 @@ class ExperimentSetup:
 
         run_id = self.model_manager.generate_run_name()
 
-        self.logger = ExperimentLogger("experiment",
-                                       TensorboardLogger(f"{LOGS_PATH}/{self.model_manager.model_type}/{run_id}"))
+        self.logger = ExperimentLogger(
+            "experiment", TensorboardLogger(f"{LOGS_PATH}/{self.model_manager.model_type}/{run_id}")
+        )
         self.logger.info(f"===============================================")
         self.logger.info(f"Starting run {run_id}")
         self.logger.info(f"===============================================")
@@ -324,8 +416,11 @@ class ExperimentSetup:
             if simulated_batch_size_valid is None:
                 simulated_batch_size_valid = simulated_batch_size
             num_simulated_batches_valid = simulated_batch_size_valid // batch_size
-            dataloader_validation = iter(DataLoader(self.dataset_validation, batch_size=batch_size,
-                                                    collate_fn=self.dataset_validation.collate_fn))
+            dataloader_validation = iter(
+                DataLoader(
+                    self.dataset_validation, batch_size=batch_size, collate_fn=self.dataset_validation.collate_fn
+                )
+            )
 
         n_tokens_accumulate_batch = None
         if accumulate_tokens_batch:
@@ -340,20 +435,34 @@ class ExperimentSetup:
 
         with Timing() as t:
             for it, batch in enumerate(dataloader):
-                self.logger.log_time(t.measure() / batch_size, "dataloader_seconds/sample",
-                                     train_step * simulated_batch_size + (it % num_simulated_batches) * batch_size)
+                self.logger.log_time(
+                    t.measure() / batch_size,
+                    "dataloader_seconds/sample",
+                    train_step * simulated_batch_size + (it % num_simulated_batches) * batch_size,
+                )
                 # Calculate gradients
                 batch = batch_filter_distances(batch, self.relative_distances)
                 model_out = self._train_step(batch, num_simulated_batches)
-                self.logger.log_time(t.measure() / batch_size, "model_seconds/sample",
-                                     train_step * simulated_batch_size + (it % num_simulated_batches) * batch_size)
+                self.logger.log_time(
+                    t.measure() / batch_size,
+                    "model_seconds/sample",
+                    train_step * simulated_batch_size + (it % num_simulated_batches) * batch_size,
+                )
 
                 # Log actual predicted words and labels
-                self.logger.log_text("input/train",
-                                     str([[self.word_vocab.reverse_lookup(st.item()) for st in token
-                                           if st.item() != self.word_vocab[PAD_TOKEN]
-                                           and st.item() != self.word_vocab[EOS_TOKEN]]
-                                          for token in batch.tokens[0]]))
+                self.logger.log_text(
+                    "input/train",
+                    str(
+                        [
+                            [
+                                self.word_vocab.reverse_lookup(st.item())
+                                for st in token
+                                if st.item() != self.word_vocab[PAD_TOKEN] and st.item() != self.word_vocab[EOS_TOKEN]
+                            ]
+                            for token in batch.tokens[0]
+                        ]
+                    ),
+                )
                 self.logger.log_text("predicted words/train", str(self._decode_predicted_words(model_out, batch)))
                 self.logger.log_text("labels/train", str(self._decode_labels(batch)))
 
@@ -365,8 +474,12 @@ class ExperimentSetup:
                     n_tokens_accumulate_batch += batch.sequence_lengths.sum().item()
 
                 # Gradient accumulation: only update gradients every num_simulated_batches step
-                if not accumulate_tokens_batch and it % num_simulated_batches == (num_simulated_batches - 1) \
-                        or accumulate_tokens_batch and n_tokens_accumulate_batch > simulated_batch_size:
+                if (
+                    not accumulate_tokens_batch
+                    and it % num_simulated_batches == (num_simulated_batches - 1)
+                    or accumulate_tokens_batch
+                    and n_tokens_accumulate_batch > simulated_batch_size
+                ):
                     if accumulate_tokens_batch:
                         n_tokens_accumulate_batch = 0
                     train_step += 1
@@ -376,17 +489,15 @@ class ExperimentSetup:
                         if p.grad is not None:
                             param_norm = p.grad.data.norm(2)
                             total_norm += param_norm.item() ** 2
-                    total_norm = total_norm ** (1. / 2)
-                    self.logger.log_metrics({'gradient_norm': total_norm}, train_step * simulated_batch_size)
+                    total_norm = total_norm ** (1.0 / 2)
+                    self.logger.log_metrics({"gradient_norm": total_norm}, train_step * simulated_batch_size)
 
                     self.optimizer.step()
                     self.optimizer.zero_grad()
                     if self.scheduler:
-                        if not hasattr(self.scheduler,
-                                       "total_steps") or train_step < self.scheduler.total_steps - 1:
+                        if not hasattr(self.scheduler, "total_steps") or train_step < self.scheduler.total_steps - 1:
                             self.scheduler.step()
-                        self.logger.log_metrics({'lr': self.scheduler.get_lr()[0]},
-                                                train_step * simulated_batch_size)
+                        self.logger.log_metrics({"lr": self.scheduler.get_lr()[0]}, train_step * simulated_batch_size)
 
                     # Send train metrics to observers
                     self.logger.flush_batch_metrics(train_step * simulated_batch_size)
@@ -402,34 +513,43 @@ class ExperimentSetup:
                                 output = self.model_lm.forward_batch(validation_batch).cpu()
                                 validation_batch = batch_to_device(validation_batch, "cpu")
 
-                                evaluation = self._evaluate_predictions(output.logits, validation_batch.labels,
-                                                                        loss=output.loss, partition='valid')
+                                evaluation = self._evaluate_predictions(
+                                    output.logits, validation_batch.labels, loss=output.loss, partition="valid"
+                                )
                                 self.logger.log_sub_batch_metrics(evaluation)
 
-                                self.logger.log_text("predicted words/validation",
-                                                     str(self._decode_predicted_words(output, validation_batch)))
-                                self.logger.log_text("labels/validation",
-                                                     str(self._decode_labels(validation_batch)))
+                                self.logger.log_text(
+                                    "predicted words/validation",
+                                    str(self._decode_predicted_words(output, validation_batch)),
+                                )
+                                self.logger.log_text("labels/validation", str(self._decode_labels(validation_batch)))
                         self.model_lm.train()
                         self.logger.flush_batch_metrics(step=train_step * simulated_batch_size)
-                        self.logger.log_time(t.measure() / simulated_batch_size_valid, "valid_seconds/sample",
-                                             train_step * simulated_batch_size)
+                        self.logger.log_time(
+                            t.measure() / simulated_batch_size_valid,
+                            "valid_seconds/sample",
+                            train_step * simulated_batch_size,
+                        )
 
                 if persistent_snapshot_every and (it + 1) % persistent_snapshot_every == 0:
                     snapshot_iteration = it + 1
                     self.logger.info(f"Storing model params into snapshot-{snapshot_iteration}")
                     self.model_manager.save_snapshot(run_id, self.model_lm.state_dict(), snapshot_iteration)
                     dataset = self.dataset_validation_creator(False)
-                    score = self.evaluate(islice(dataset.to_dataloader(), int(max_validation_samples / batch_size)),
-                                          train_step * simulated_batch_size, 'valid_full')
+                    score = self.evaluate(
+                        islice(dataset.to_dataloader(), int(max_validation_samples / batch_size)),
+                        train_step * simulated_batch_size,
+                        "valid_full",
+                    )
                     if f"micro_f1_score/valid_full" in self.logger.sub_batch_metrics:
-                        score_name = 'micro-F1'
+                        score_name = "micro-F1"
                     else:
-                        score_name = 'F1'
+                        score_name = "F1"
                     self.logger.info(f"Full evaluation yielded {score} {score_name}")
                     if not early_stopping.evaluate(score, snapshot_iteration):
-                        self.logger.info(f"Last {early_stopping_patience} evaluations did not improve performance. "
-                                         f"Stopping run")
+                        self.logger.info(
+                            f"Last {early_stopping_patience} evaluations did not improve performance. " f"Stopping run"
+                        )
 
                         break
 
@@ -454,7 +574,7 @@ class ExperimentSetup:
 
         return output_cpu
 
-    def _evaluate_predictions(self, logits, labels, loss=None, partition='train'):
+    def _evaluate_predictions(self, logits, labels, loss=None, partition="train"):
         evaluation = dict()
         for metric_name, metric_fn in self.metrics.items():
             evaluation[f"{metric_name}/{partition}"] = metric_fn(logits, labels)
@@ -462,7 +582,7 @@ class ExperimentSetup:
             evaluation[f"loss/{partition}"] = loss.item()
         return evaluation
 
-    def evaluate(self, dataset, step, partition='valid'):
+    def evaluate(self, dataset, step, partition="valid"):
         # Evaluate on validation set
         self.model_lm.eval()
         predictions = []
@@ -477,12 +597,14 @@ class ExperimentSetup:
                 predictions.extend(output.logits.argmax(-1))
                 labels.extend(validation_batch.labels)
 
-                evaluation = self._evaluate_predictions(output.logits, validation_batch.labels,
-                                                        loss=output.loss, partition=partition)
+                evaluation = self._evaluate_predictions(
+                    output.logits, validation_batch.labels, loss=output.loss, partition=partition
+                )
                 self.logger.log_sub_batch_metrics(evaluation)
 
-                self.logger.log_text("predicted words/validation",
-                                     str(self._decode_predicted_words(output, validation_batch)))
+                self.logger.log_text(
+                    "predicted words/validation", str(self._decode_predicted_words(output, validation_batch))
+                )
                 self.logger.log_text("labels/validation", str(self._decode_labels(validation_batch)))
         self.model_lm.train()
         if f"micro_f1_score/{partition}" in self.logger.sub_batch_metrics:
@@ -495,36 +617,49 @@ class ExperimentSetup:
 
     def _decode_predicted_words(self, model_out, batch):
         method_name_vocab = self.method_name_vocab if self.use_separate_vocab else self.word_vocab
-        if hasattr(self, 'use_pointer_network') and self.use_pointer_network:
+        if hasattr(self, "use_pointer_network") and self.use_pointer_network:
             extended_vocab_reverse = {idx: word for word, idx in batch.extended_vocabulary[0].items()}
-            predicted_sub_tokens = ((predicted_sub_token.argmax().item(), predicted_sub_token.max().item()) for
-                                    predicted_sub_token in model_out.logits[0][0])
+            predicted_sub_tokens = (
+                (predicted_sub_token.argmax().item(), predicted_sub_token.max().item())
+                for predicted_sub_token in model_out.logits[0][0]
+            )
             return [
-                (extended_vocab_reverse[st] if st in extended_vocab_reverse else method_name_vocab.reverse_lookup(st),
-                 f"{value:0.2f}") for st, value in predicted_sub_tokens]
+                (
+                    extended_vocab_reverse[st]
+                    if st in extended_vocab_reverse
+                    else method_name_vocab.reverse_lookup(st),
+                    f"{value:0.2f}",
+                )
+                for st, value in predicted_sub_tokens
+            ]
         else:
-            return [(method_name_vocab.reverse_lookup(predicted_sub_token.argmax().item()),
-                     f"{predicted_sub_token.max().item():0.2f}") for
-                    predicted_sub_token in model_out.logits[0][0]]
+            return [
+                (
+                    method_name_vocab.reverse_lookup(predicted_sub_token.argmax().item()),
+                    f"{predicted_sub_token.max().item():0.2f}",
+                )
+                for predicted_sub_token in model_out.logits[0][0]
+            ]
 
     def _decode_labels(self, batch):
         method_name_vocab = self.method_name_vocab if self.use_separate_vocab else self.word_vocab
-        if hasattr(self, 'use_pointer_network') and self.use_pointer_network:
+        if hasattr(self, "use_pointer_network") and self.use_pointer_network:
             extended_vocab_reverse = {idx: word for word, idx in batch.extended_vocabulary[0].items()}
             label_tokens = (sub_token_label.item() for sub_token_label in batch.labels[0][0])
-            return [extended_vocab_reverse[lt] if lt in extended_vocab_reverse else method_name_vocab.reverse_lookup(lt)
-                    for lt in label_tokens]
+            return [
+                extended_vocab_reverse[lt] if lt in extended_vocab_reverse else method_name_vocab.reverse_lookup(lt)
+                for lt in label_tokens
+            ]
         else:
             return [method_name_vocab.reverse_lookup(sub_token_label.item()) for sub_token_label in batch.labels[0][0]]
 
     def get_dataloader(self, split: str, batch_size: int):
-        assert split == 'train' or split == 'validation'
-        if split == 'train':
+        assert split == "train" or split == "validation"
+        if split == "train":
             ds = self.dataset_train
-        elif split == 'validation':
+        elif split == "validation":
             ds = self.dataset_validation
-        dl = DataLoader(ds, batch_size=batch_size, num_workers=0,
-                        collate_fn=ds.collate_fn)
+        dl = DataLoader(ds, batch_size=batch_size, num_workers=0, collate_fn=ds.collate_fn)
         dl = DataLoaderWrapper(dl)
         return BufferedDataManager(dl)
 
@@ -535,7 +670,6 @@ class ExperimentSetup:
 
 
 class EarlyStopping:
-
     def __init__(self, model_manager: ModelManager, run_id, patience):
         self.model_manager = model_manager
         self.run_id = run_id
@@ -548,7 +682,7 @@ class EarlyStopping:
         self.evaluation_results[snapshot_iteration] = score
         sorted_results = sorted(self.evaluation_results.items(), key=lambda x: x[1], reverse=True)
         print(f"Current best performing snapshots: {sorted_results}")
-        snapshots_to_keep = sorted_results[:self.patience]
+        snapshots_to_keep = sorted_results[: self.patience]
         snapshots_to_keep = [x[0] for x in snapshots_to_keep]
 
         stored_snapshots = self.model_manager.get_available_snapshots(self.run_id)

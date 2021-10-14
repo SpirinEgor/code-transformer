@@ -16,9 +16,14 @@ from code_transformer.env import DATA_PATH_STAGE_2
 
 
 class TestXLNet(unittest.TestCase):
-
-    def _create_xl_net_model(self, data_manager, use_pointer_network=True, use_query_self_attention=False,
-                             output_subtokens_per_token=6, num_languages=None):
+    def _create_xl_net_model(
+        self,
+        data_manager,
+        use_pointer_network=True,
+        use_query_self_attention=False,
+        output_subtokens_per_token=6,
+        num_languages=None,
+    ):
         word_vocab, token_type_vocab, node_type_vocab = data_manager.load_vocabularies()
         config = data_manager.load_config()
 
@@ -30,15 +35,13 @@ class TestXLNet(unittest.TestCase):
             dropout=0.2,
             n_layer=3,
             vocab_size=len(word_vocab),
-            mem_len=1024
+            mem_len=1024,
         )
         encoder_config = dict(
-            vocab_size=len(word_vocab),
-            num_token_types=len(token_type_vocab),
-            num_languages=num_languages
+            vocab_size=len(word_vocab), num_token_types=len(token_type_vocab), num_languages=num_languages
         )
         decoder_config = dict(
-            sos_id=config['preprocessing']['special_symbols'][SOS_TOKEN],
+            sos_id=config["preprocessing"]["special_symbols"][SOS_TOKEN],
             n_layers=2,
             use_teacher_forcing=True,
             output_subtokens_per_token=output_subtokens_per_token,
@@ -46,12 +49,12 @@ class TestXLNet(unittest.TestCase):
             decoder_dim_feedforward=32,
             use_pointer_network=use_pointer_network,
             use_pointer_query_self_attention=use_query_self_attention,
-            pointer_attention_type=AttentionType.MULTIHEAD
+            pointer_attention_type=AttentionType.MULTIHEAD,
         )
 
         def init_model():
-            encoder_config['transformer'] = transformer_config
-            decoder_config['lm_encoder'] = XLNetLMEncoder(TransformerLMEncoderConfig(**encoder_config))
+            encoder_config["transformer"] = transformer_config
+            decoder_config["lm_encoder"] = XLNetLMEncoder(TransformerLMEncoderConfig(**encoder_config))
             model = XLNetTransformerDecoder(TransformerLMDecoderConfig(**decoder_config))
 
             num_params = sum([len(params.view(-1)) for params in model.parameters()])
@@ -63,9 +66,10 @@ class TestXLNet(unittest.TestCase):
         return model
 
     def test_xl_net(self):
-        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2, language='java-small', partition='valid')
-        dataset = CTCodeSummarizationDatasetNoPunctuation(data_manager, num_sub_tokens_output=6,
-                                                          use_pointer_network=True)
+        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2, language="java-small", partition="valid")
+        dataset = CTCodeSummarizationDatasetNoPunctuation(
+            data_manager, num_sub_tokens_output=6, use_pointer_network=True
+        )
         dataloader = DataLoader(dataset, batch_size=3, collate_fn=dataset.collate_fn)
 
         iterator = iter(dataloader)
@@ -85,10 +89,13 @@ class TestXLNet(unittest.TestCase):
         self.assertLess(output.loss.item(), 1)
 
     def test_xl_net_multilanguage(self):
-        data_manager = CTPreprocessedDataManager(DATA_PATH_STAGE_2, language='python,javascript,go,ruby', partition='train', infinite_loading=True)
+        data_manager = CTPreprocessedDataManager(
+            DATA_PATH_STAGE_2, language="python,javascript,go,ruby", partition="train", infinite_loading=True
+        )
 
-        dataset = CTCodeSummarizationDatasetNoPunctuation(data_manager, num_sub_tokens_output=6,
-                                                          use_pointer_network=True)
+        dataset = CTCodeSummarizationDatasetNoPunctuation(
+            data_manager, num_sub_tokens_output=6, use_pointer_network=True
+        )
         dataloader = DataLoader(dataset, batch_size=3, collate_fn=dataset.collate_fn)
 
         iterator = iter(dataloader)

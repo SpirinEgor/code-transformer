@@ -22,7 +22,6 @@ class Timing:
     """
 
     class TimeMeasurer:
-
         def __init__(self, start):
             self.start = start
             self.times = []

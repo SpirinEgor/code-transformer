@@ -11,7 +11,6 @@ PAD_ID = 3
 
 
 class TestLoss(TestCase):
-
     @staticmethod
     def create_prediction(*desired_words):
         token = []
@@ -41,19 +40,25 @@ class TestLoss(TestCase):
         label_smoothing_01 = LabelSmoothingLoss(0.1)
         cross_entropy = CrossEntropyLoss()
 
-        logits = torch.tensor([[TestLoss.create_prediction(10),
-                                TestLoss.create_prediction(11)],
-                               [TestLoss.create_prediction(20, 21),
-                                TestLoss.create_prediction()]], dtype=torch.float32)
-        labels = torch.tensor([[TestLoss.create_label(10),
-                                TestLoss.create_label(10)],
-                               [TestLoss.create_label(20),
-                                TestLoss.create_label(20)]])
+        logits = torch.tensor(
+            [
+                [TestLoss.create_prediction(10), TestLoss.create_prediction(11)],
+                [TestLoss.create_prediction(20, 21), TestLoss.create_prediction()],
+            ],
+            dtype=torch.float32,
+        )
+        labels = torch.tensor(
+            [
+                [TestLoss.create_label(10), TestLoss.create_label(10)],
+                [TestLoss.create_label(20), TestLoss.create_label(20)],
+            ]
+        )
 
-        self.assertAlmostEqual(label_smoothing(logits.view(-1, VOCAB_SIZE), labels.view(-1)),
-                               cross_entropy(logits.view(-1, VOCAB_SIZE), labels.view(-1)))
+        self.assertAlmostEqual(
+            label_smoothing(logits.view(-1, VOCAB_SIZE), labels.view(-1)),
+            cross_entropy(logits.view(-1, VOCAB_SIZE), labels.view(-1)),
+        )
 
         logits = torch.tensor(TestLoss.create_prediction(10), dtype=torch.float32)
         labels = torch.tensor(TestLoss.create_label(10))
         self.assertTrue(label_smoothing_01(logits, labels) > cross_entropy(logits, labels))
-

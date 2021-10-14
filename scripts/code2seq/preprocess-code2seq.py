@@ -19,14 +19,14 @@ from code_transformer.utils.log import get_logger
 from code_transformer.utils.timing import Timing
 
 parser = argparse.ArgumentParser()
-parser.add_argument('language', type=str)
-parser.add_argument('partition', type=str)
-parser.add_argument('input_data_path', type=str)
-parser.add_argument('output_data_path', type=str)
-parser.add_argument('--max_path_length', type=int, default=8)
-parser.add_argument('--max_path_width', type=int, default=2)
-parser.add_argument('--use_method_name', type=bool, default=True)
-parser.add_argument('--use_nums', type=bool, default=True)
+parser.add_argument("language", type=str)
+parser.add_argument("partition", type=str)
+parser.add_argument("input_data_path", type=str)
+parser.add_argument("output_data_path", type=str)
+parser.add_argument("--max_path_length", type=int, default=8)
+parser.add_argument("--max_path_width", type=int, default=2)
+parser.add_argument("--use_method_name", type=bool, default=True)
+parser.add_argument("--use_nums", type=bool, default=True)
 
 logger = get_logger(__file__)
 args = parser.parse_args()
@@ -52,7 +52,7 @@ def process_batch(batch, args):
             node.value = node.source_span.substring(sample.stripped_code_snippet)
         # Sometimes, method names contain extra garbage in Ruby, e.g., Github.Client::Say.say
         # We only want the last part of the function name in this case
-        func_name = sample.func_name.split('.')[-1]
+        func_name = sample.func_name.split(".")[-1]
         processed_samples.extend(__collect_samples(sample.ast, args, language, func_name=func_name))
     return processed_samples
 
@@ -72,16 +72,17 @@ with parallel_backend("loky") as parallel_config:
             dataset = list(itertools.chain.from_iterable(dataset))
             logger.info(
                 f"processing {len(dataset)} samples took {t[0]:0.2f} seconds ({t[0] / len(dataset):0.3f} seconds per "
-                f"sample)")
+                f"sample)"
+            )
             samples.extend(dataset)
         else:
             break
 
-    output_file = f'{output_data_path}/{language}/{partition}.txt'
+    output_file = f"{output_data_path}/{language}/{partition}.txt"
     create_directories(output_file)
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         for line_index, line in enumerate(samples):
-            f.write(line + ('' if line_index == len(samples) - 1 else '\n'))
+            f.write(line + ("" if line_index == len(samples) - 1 else "\n"))
 
 data_manager.shutdown()
 logger.info("PREPROCESS-1 DONE!")
