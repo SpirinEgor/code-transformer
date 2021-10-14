@@ -43,20 +43,36 @@ CODE_TRANSFORMER_MODELS_PATH
  └── xl_net_code_summarization
 """
 
-from environs import Env
+from environs import Env, EnvError
 from pathlib import Path
+
+from code_transformer.utils.log import get_logger
+
+DEFAULT_DATA_DIR = "../data/code-transformer"
+DEFAULT_MODEL_DIR = "checkpoints"
+DEFAULT_LOG_DIR = "logs"
 
 env = Env(expand_vars=True)
 env_file_path = Path(f"{Path.home()}/.config/code_transformer/.env")
 if env_file_path.exists():
     env.read_env(env_file_path, recurse=False)
 
+
+def _safe_env_read(*args):
+    try:
+        return env(*args)
+    except EnvError as e:
+        logger = get_logger(__name__)
+        logger.error(e)
+        return None
+
+
 with env.prefixed("CODE_TRANSFORMER_"):
 
-    _DATA_PATH = env("DATA_PATH")
-    _BINARY_PATH = env("BINARY_PATH")
-    MODELS_SAVE_PATH = env("MODELS_PATH")
-    LOGS_PATH = env("LOGS_PATH")
+    _DATA_PATH = env("DATA_PATH", DEFAULT_DATA_DIR)
+    _BINARY_PATH = _safe_env_read("BINARY_PATH")
+    MODELS_SAVE_PATH = env("MODELS_PATH", DEFAULT_MODEL_DIR)
+    LOGS_PATH = env("LOGS_PATH", DEFAULT_LOG_DIR)
 
     CSN_RAW_DATA_PATH = env("CSN_RAW_DATA_PATH", f"{_DATA_PATH}/raw/csn")
     CODE2SEQ_RAW_DATA_PATH = env("CODE2SEQ_RAW_DATA_PATH", f"{_DATA_PATH}/raw/code2seq")
@@ -73,3 +89,4 @@ with env.prefixed("CODE_TRANSFORMER_"):
         "JAVA_METHOD_EXTRACTOR_EXECUTABLE", f"{_BINARY_PATH}/JavaMethodExtractor-1.0.0-SNAPSHOT.jar"
     )
     SEMANTIC_EXECUTABLE = env("SEMANTIC_EXECUTABLE", f"{_BINARY_PATH}/semantic")
+e
