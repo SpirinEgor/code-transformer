@@ -102,7 +102,7 @@ class CTCodeSummarizationDataset(CTBaseDataset):
 
             # Ensure to free memory
             del sample, cls_tokens, cls_token, func_name, label
-            return next(self)
+            return None
 
         idx_func_tokens = []
         # Encode with ID and pad
@@ -159,7 +159,7 @@ class CTCodeSummarizationDataset(CTBaseDataset):
 
             # Ensure to free memory
             del sample, cls_tokens, cls_token, func_name, label, idx_func_tokens, encoded_label
-            return next(self)
+            return None
 
         # Remove any additional tokens if label is more than 1 token long
         sample.tokens = [t for i, t in enumerate(sample.tokens) if i not in idx_func_tokens[1:]]
@@ -455,7 +455,7 @@ class CTCodeSummarizationDatasetNoPunctuation(CTCodeSummarizationDataset):
         if self.max_num_tokens_no_punctuation is not None and len(idx) > self.max_num_tokens_no_punctuation + 1:
             # too many tokens
             logger.warn(f"Snippet has {len(idx)} tokens exceeding the limit of {self.max_num_tokens_no_punctuation}")
-            return self.__next__()
+            return None
 
         # In case there was a punctuation token before the function definition, the label ids have to be shifted as well
         idx_func_tokens_no_punctuation = []
