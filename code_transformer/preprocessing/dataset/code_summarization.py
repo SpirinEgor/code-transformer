@@ -447,6 +447,8 @@ class CTCodeSummarizationDatasetNoPunctuation(CTCodeSummarizationDataset):
 
     def _process_sample(self, sample):
         sample = super(CTCodeSummarizationDatasetNoPunctuation, self)._process_sample(sample)
+        if sample is None:
+            return None
 
         # Calculate indices of tokens that should be kept, i.e., are tokens like identifiers or types
         decoded_tokens = decode_tokens(sample.tokens, word_vocab=self.word_vocab, config=self.config)
