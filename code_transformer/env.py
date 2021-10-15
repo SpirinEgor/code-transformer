@@ -48,10 +48,7 @@ from pathlib import Path
 
 from code_transformer.utils.log import get_logger
 
-DEFAULT_DATA_DIR = "../data/code-transformer"
-DEFAULT_MODEL_DIR = "checkpoints"
 DEFAULT_LOG_DIR = "logs"
-
 DEFAULT_DATASET_TYPE = "iterable"
 
 env = Env(expand_vars=True)
@@ -71,9 +68,9 @@ def _safe_env_read(*args):
 
 with env.prefixed("CODE_TRANSFORMER_"):
 
-    _DATA_PATH = env("DATA_PATH", DEFAULT_DATA_DIR)
+    _DATA_PATH = env("DATA_PATH")
     _BINARY_PATH = _safe_env_read("BINARY_PATH")
-    MODELS_SAVE_PATH = env("MODELS_PATH", DEFAULT_MODEL_DIR)
+    MODELS_SAVE_PATH = env("MODELS_PATH")
     LOGS_PATH = env("LOGS_PATH", DEFAULT_LOG_DIR)
 
     CSN_RAW_DATA_PATH = env("CSN_RAW_DATA_PATH", f"{_DATA_PATH}/raw/csn")
