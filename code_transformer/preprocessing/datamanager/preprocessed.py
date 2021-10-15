@@ -1,12 +1,15 @@
 import glob
 import random
+from collections import defaultdict
 from copy import copy, deepcopy
 from math import floor, ceil
+from os.path import split
 from typing import List, Tuple
 
 import numpy as np
 from tqdm import tqdm
 
+from code_transformer.env import DATASET_TYPE
 from code_transformer.preprocessing.pipeline.stage2 import CTStage2MultiLanguageSample
 from code_transformer.preprocessing.datamanager.base import DataManager, BufferedDataManager
 from code_transformer.preprocessing.nlp.vocab import Vocabulary, WordCounter
@@ -92,16 +95,12 @@ class CTPreprocessedDataManager(DataManager):
             majority_class_size = max(dataset_imbalance)
             self.dataset_imbalance_multipliers = [majority_class_size / lang_size for lang_size in dataset_imbalance]
 
-        self._files = glob.glob(f"{self.dataset_location}/dataset-*.p.gzip")
-        config = self.load_config()
-        if "dataset_slice_size" in config["execution"]:
-            # Stage 2 dataset
-            self._dataset_slice_size = config["execution"]["dataset_slice_size"]
-        elif "save_every" in config["execution"]:
-            # Stage 1 dataset
-            self._dataset_slice_size = config["execution"]["save_every"]
+        if DATASET_TYPE == "iterable":
+            self._files = glob.glob(f"{self.dataset_location}/dataset-*.p.gzip")
+        elif DATASET_TYPE == "mapstyle":
+            self._files = glob.glob(f"{self.dataset_location}/dataset-*/datapoint-*.p.gzip")
         else:
-            self._dataset_slice_size = 5000
+            raise ValueError(f"Unknown dataset type: {DATASET_TYPE}")
 
     def save(self, dataset_slice: List, dataset_slice_idx=None, **kwargs):
         """
@@ -187,9 +186,19 @@ class CTPreprocessedDataManager(DataManager):
 
     def approximate_total_samples(self, dataset_slice_size=None):
         if dataset_slice_size is None:
-            dataset_slice_size = self._dataset_slice_size
-        return len(self._files) * dataset_slice_size
-        # return (len(self._files) - 1) * dataset_slice_size + int(dataset_slice_size / 2)
+            config = self.load_config()
+            if "dataset_slice_size" in config["execution"]:
+                # Stage 2 dataset
+                dataset_slice_size = config["execution"]["dataset_slice_size"]
+            elif "save_every" in config["execution"]:
+                # Stage 1 dataset
+                dataset_slice_size = config["execution"]["save_every"]
+            else:
+                dataset_slice_size = 5000
+        if DATASET_TYPE == "iterable":
+            return (len(self._files) - 1) * dataset_slice_size + int(dataset_slice_size / 2)
+        elif DATASET_TYPE == "mapstyle":
+            return len(self._files)
 
     def _lazy_load_files(self):
         """
@@ -269,12 +278,8 @@ class CTPreprocessedDataManager(DataManager):
         return data
 
     def __getitem__(self, item: int):
-        file_num, file_pos = item // self._dataset_slice_size, item % self._dataset_slice_size
-        item_file_name = self._files[file_num]
-        data = load_zipped(item_file_name)
-        if len(data) <= file_pos:
-            return None
-        return data[file_pos]
+        data = load_zipped(self._files[item])
+        return data
 
     def __iter__(self):
         """
