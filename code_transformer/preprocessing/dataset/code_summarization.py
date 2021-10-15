@@ -73,11 +73,17 @@ class CTCodeSummarizationDataset(CTBaseDataset):
     def __len__(self):
         return self.data_manager.approximate_total_samples()
 
+    def __next__(self):
+        sample = self._get_next_sample()
+        return self._process_sample(sample)
+
     def __getitem__(self, item):
         sample = self._validate_sample(self.data_manager[item])
         if sample is None:
             return None
+        return self._process_sample(sample)
 
+    def _process_sample(self, sample):
         cls_tokens = [self.word_vocab[CLS_TOKENS[i]] for i in range(self.num_sub_tokens)]
         cls_token = CTToken(cls_tokens, None, self.token_type_vocab[CLS_TOKEN])
 
@@ -439,8 +445,8 @@ class CTCodeSummarizationDatasetNoPunctuation(CTCodeSummarizationDataset):
         self.config = data_manager.load_config()
         self.max_num_tokens_no_punctuation = max_num_tokens
 
-    def __getitem__(self, item):
-        sample = super(CTCodeSummarizationDatasetNoPunctuation, self).__getitem__(item)
+    def _process_sample(self, sample):
+        sample = super(CTCodeSummarizationDatasetNoPunctuation, self)._process_sample(sample)
 
         # Calculate indices of tokens that should be kept, i.e., are tokens like identifiers or types
         decoded_tokens = decode_tokens(sample.tokens, word_vocab=self.word_vocab, config=self.config)

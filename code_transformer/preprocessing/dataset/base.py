@@ -6,6 +6,7 @@ from torch.nn import functional as F
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import IterableDataset, DataLoader, Dataset
 
+from code_transformer.env import DATASET_TYPE
 from code_transformer.modeling.constants import PAD_TOKEN, EOS_TOKEN, MAX_NUM_TOKENS, UNKNOWN_TOKEN
 from code_transformer.modeling.data_utils import pad_mask
 from code_transformer.preprocessing.pipeline.stage2 import CTStage2Sample, CTStage2MultiLanguageSample
@@ -49,7 +50,16 @@ CTBaseBatch = namedtuple(
 )
 
 
-class CTBaseDataset(Dataset):
+__base_dataset = None
+if DATASET_TYPE == "mapstyle":
+    __base_dataset = Dataset
+elif DATASET_TYPE == "iterable":
+    __base_dataset = IterableDataset
+else:
+    raise ValueError(f"Unknown dataset type: {DATASET_TYPE}")
+
+
+class CTBaseDataset(__base_dataset):
     """
     Unites common functionalities used across different datasets such as applying the token mapping to the
     distance matrices and collating the matrices from multiple samples into one big tensor.

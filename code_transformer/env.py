@@ -52,6 +52,8 @@ DEFAULT_DATA_DIR = "../data/code-transformer"
 DEFAULT_MODEL_DIR = "checkpoints"
 DEFAULT_LOG_DIR = "logs"
 
+DEFAULT_DATASET_TYPE = "iterable"
+
 env = Env(expand_vars=True)
 env_file_path = Path(f"{Path.home()}/.config/code_transformer/.env")
 if env_file_path.exists():
@@ -89,3 +91,5 @@ with env.prefixed("CODE_TRANSFORMER_"):
         "JAVA_METHOD_EXTRACTOR_EXECUTABLE", f"{_BINARY_PATH}/JavaMethodExtractor-1.0.0-SNAPSHOT.jar"
     )
     SEMANTIC_EXECUTABLE = env("SEMANTIC_EXECUTABLE", f"{_BINARY_PATH}/semantic")
+
+    DATASET_TYPE = env("DATASET", DEFAULT_DATASET_TYPE)
