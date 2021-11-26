@@ -14,12 +14,13 @@ public class ASTParser {
      * input Java method.
      *
      * Build file with
-     * mvn clean compile assembly:single
+     * ./gradlew shadowJar
      *
      * Use by piping a complete Java method into the .jar, e.g.,
-     * >> echo public void test() { call(param); } | java -jar java-parser.jar
+     * >> echo "public void test() { call(param); }" | java -jar build/libs/java-parser.jar
      *
      * Example output:
+     * ```json
      * {
      *  "type":"MethodDeclaration",
      *  "sourceRange":{
@@ -165,6 +166,7 @@ public class ASTParser {
      *      }
      *  ]
      * }
+     * ```
      */
 
     public static void main(String[] args) throws Exception {

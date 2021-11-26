@@ -1,7 +1,13 @@
 # Python cache
-_pycache__
+__pycache__
 *.py[cod]
 
 # IntelliJ/Jupyter
-.idea
+**/.idea
 .ipynb_checkpoints
+
+# Java builds
+**/.gradle
+**/build
+
+checkpoints/

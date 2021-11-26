@@ -25,7 +25,7 @@ CODE_TRANSFORMER_DATA_PATH
 
 
 CODE_TRANSFORMER_BINARY_PATH
- ├── java-parser-1.0-SNAPSHOT.jar
+ ├── java-parser.jar
  ├── JavaMethodExtractor-1.0.0-SNAPSHOT.jar
  └── semantic
 
@@ -83,7 +83,7 @@ with env.prefixed("CODE_TRANSFORMER_"):
     DATA_PATH_STAGE_2 = env("DATA_PATH_STAGE_2", f"{_DATA_PATH}/stage2")
 
     JAVA_EXECUTABLE = env("JAVA_EXECUTABLE", "java")
-    JAVA_PARSER_EXECUTABLE = env("JAVA_PARSER_EXECUTABLE", f"{_BINARY_PATH}/java-parser-1.0-SNAPSHOT.jar")
+    JAVA_PARSER_EXECUTABLE = env("JAVA_PARSER_EXECUTABLE", f"{_BINARY_PATH}/java-parser.jar")
     JAVA_METHOD_EXTRACTOR_EXECUTABLE = env(
         "JAVA_METHOD_EXTRACTOR_EXECUTABLE", f"{_BINARY_PATH}/JavaMethodExtractor-1.0.0-SNAPSHOT.jar"
     )
