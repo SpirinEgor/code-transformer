@@ -1,10 +1,12 @@
-import torch
-from torch import nn
-import torch.nn.functional as F
-import numpy as np
-from torch.nn.init import xavier_uniform_
-from code_transformer.configuration.great_transformer import GreatEncoderConfig
 from typing import Optional
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torch import nn
+from torch.nn.init import xavier_uniform_
+
+from code_transformer.configuration.great_transformer import GreatEncoderConfig
 from code_transformer.preprocessing.dataset.code_summarization import GreatBatch
 
 

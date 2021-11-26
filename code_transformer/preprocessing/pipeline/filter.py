@@ -4,16 +4,14 @@ Implements masking of numbers and strings, removing comments, detecting indentat
 """
 
 import io
+from abc import ABC, abstractmethod
+from collections import Counter
+from typing import List
 
 import pygments.token
-from collections import Counter
 
 from code_transformer.preprocessing.nlp.text import RangeInterval, TextPosition
 from code_transformer.preprocessing.nlp.tokenization import split_identifier_into_parts, CTToken, Token
-
-from abc import ABC, abstractmethod
-
-from typing import List
 
 
 class CodeFilter(ABC):

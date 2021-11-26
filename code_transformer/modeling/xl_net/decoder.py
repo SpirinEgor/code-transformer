@@ -1,8 +1,8 @@
+from torch import nn
+
 from code_transformer.configuration.transformer_lm_decoder import TransformerLMDecoderConfig
 from code_transformer.configuration.transformer_lm_encoder import TransformerLMEncoderConfig
 from code_transformer.modeling.decoder.transformer import TransformerLMDecoder
-from torch import nn
-
 from code_transformer.modeling.xl_net.xl_net_language_model import XLNetLMEncoder
 from code_transformer.preprocessing.datamanager.base import CTBatch
 

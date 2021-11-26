@@ -1,12 +1,12 @@
 import torch
+from torch import nn
 
 from code_transformer.configuration.great_transformer import GreatEncoderConfig
 from code_transformer.configuration.transformer_lm_decoder import TransformerLMDecoderConfig
+from code_transformer.modeling.code_transformer.code_transformer import TransformerOutput
 from code_transformer.modeling.decoder.transformer import TransformerLMDecoder
 from code_transformer.modeling.great_transformer.great_transformer import GreatEncoder
-from code_transformer.modeling.code_transformer.code_transformer import TransformerOutput
 from code_transformer.preprocessing.dataset.code_summarization import GreatBatch
-from torch import nn
 
 
 class GreatEncoderTransformerAdapter(GreatEncoder):
