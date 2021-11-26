@@ -29,7 +29,7 @@ public class MethodVisitor extends VoidVisitorAdapter<Object> {
         if (node.getBody() != null) {
             long methodLength = getMethodLength(node.getBody().toString());
             if (commandLineValues.MaxCodeLength > 0) {
-                if (methodLength >=commandLineValues.MinCodeLength && methodLength <= commandLineValues.MaxCodeLength) {
+                if (methodLength >= commandLineValues.MinCodeLength && methodLength <= commandLineValues.MaxCodeLength) {
                     methods.add(new MethodContent(methodCode, methodName, doc));
                 }
             } else {

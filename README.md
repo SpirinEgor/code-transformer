@@ -41,3 +41,9 @@ navigate to [`sub_modules/java-parser`] and build shadow Jar with
 
 After that,
 copy `sub_modules/java-parser/build/libs/java-parser.jar` to folder with binaries `$CODE_TRANSFORMER_BINARY_PATH`.
+
+The same for the Java Method Extractor: navigate to `sub_modules/java-method-extractor` and build jar with:
+```shell
+./gradlew shadowJar
+```
+Copy `sub_modules/java-method-extractor/build/libs/java-method-extractor.jar` to `$CODE_TRANSFORMER_BINARY_PATH`. 
