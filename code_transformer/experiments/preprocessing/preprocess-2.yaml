@@ -3,7 +3,7 @@ experiment_setup:
 
 execution:
   num_processes: 15
-  batch_size: 100
+  batch_size: 10
   dataset_slice_size: 5000
 
 preprocessing:

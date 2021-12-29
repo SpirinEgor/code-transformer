@@ -57,19 +57,10 @@ if env_file_path.exists():
     env.read_env(env_file_path, recurse=False)
 
 
-def _safe_env_read(*args):
-    try:
-        return env(*args)
-    except EnvError as e:
-        logger = get_logger(__name__)
-        logger.error(e)
-        return None
-
-
 with env.prefixed("CODE_TRANSFORMER_"):
 
     _DATA_PATH = env("DATA_PATH")
-    _BINARY_PATH = _safe_env_read("BINARY_PATH")
+    _BINARY_PATH = env("BINARY_PATH")
     MODELS_SAVE_PATH = env("MODELS_PATH")
     LOGS_PATH = env("LOGS_PATH", DEFAULT_LOG_DIR)
 
